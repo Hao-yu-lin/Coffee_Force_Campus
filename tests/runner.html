@@ -11,7 +11,7 @@
         p.subtitle { text-align: center; color: #a6adc8; font-size: 0.88em; margin-bottom: 24px; }
 
         #summary {
-            max-width: 700px;
+            max-width: 720px;
             margin: 0 auto 20px;
             background: #313244;
             border-radius: 10px;
@@ -19,64 +19,31 @@
             font-size: 1em;
         }
         #summary .stat { display: inline-block; padding: 4px 14px; border-radius: 6px; margin: 4px 6px; font-weight: 700; }
-        .stat-pass { background: #a6e3a1; color: #1e1e2e; }
-        .stat-fail { background: #f38ba8; color: #1e1e2e; }
-        .stat-total{ background: #89b4fa; color: #1e1e2e; }
+        .stat-pass  { background: #a6e3a1; color: #1e1e2e; }
+        .stat-fail  { background: #f38ba8; color: #1e1e2e; }
+        .stat-total { background: #89b4fa; color: #1e1e2e; }
 
-        #results {
-            max-width: 700px;
-            margin: 0 auto;
-        }
+        #results { max-width: 720px; margin: 0 auto; }
 
-        .suite-block {
-            background: #313244;
-            border-radius: 10px;
-            margin-bottom: 14px;
-            overflow: hidden;
-        }
+        .suite-block { background: #313244; border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
         .suite-header {
-            padding: 10px 16px;
-            font-weight: 700;
-            font-size: 0.95em;
-            background: #45475a;
-            color: #cba6f7;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
+            padding: 10px 16px; font-weight: 700; font-size: 0.95em;
+            background: #45475a; color: #cba6f7;
+            display: flex; justify-content: space-between; align-items: center;
         }
         .suite-tests { padding: 8px 16px 12px; }
 
         .test-row {
-            padding: 6px 8px;
-            border-radius: 5px;
-            margin: 4px 0;
-            font-size: 0.88em;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
+            padding: 6px 8px; border-radius: 5px; margin: 4px 0;
+            font-size: 0.88em; display: flex; align-items: flex-start; gap: 8px;
         }
-        .test-pass { background: rgba(166,227,161,0.1); color: #a6e3a1; }
-        .test-fail { background: rgba(243,139,168,0.15); color: #f38ba8; }
-        .test-icon { flex-shrink: 0; font-size: 1em; }
-        .test-name { flex: 1; }
+        .test-pass  { background: rgba(166,227,161,0.1); color: #a6e3a1; }
+        .test-fail  { background: rgba(243,139,168,0.15); color: #f38ba8; }
+        .test-icon  { flex-shrink: 0; }
+        .test-name  { flex: 1; }
         .test-error { color: #fab387; font-size: 0.82em; margin-top: 3px; }
 
-        .run-btn {
-            display: block;
-            margin: 0 auto 20px;
-            padding: 10px 32px;
-            background: #cba6f7;
-            color: #1e1e2e;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 1em;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .run-btn:hover { background: #b39ddb; }
-
-        .badge { font-size: 0.78em; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+        .badge { font-size: 0.78em; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
         .badge-pass { background: #a6e3a1; color: #1e1e2e; }
         .badge-fail { background: #f38ba8; color: #1e1e2e; }
     </style>
@@ -84,128 +51,133 @@
 <body>
     <h1>☕ Coffee Force Campus</h1>
     <p class="subtitle">Unit Test Runner — utils.js pure functions</p>
-
-    <button class="run-btn" onclick="runTests()">▶ Run Tests</button>
-
-    <div id="summary" style="display:none;"></div>
+    <div id="summary"></div>
     <div id="results"></div>
 
-    <!-- Dependencies: constants.js first (DATASET_COLORS needed by utils.js) -->
+    <!-- 1. App constants (must load before utils) -->
     <script src="../js/constants.js"></script>
     <script src="../js/utils.js"></script>
 
-    <!-- Test suite -->
+    <!-- 2. Test framework (must load BEFORE unit.test.js) -->
+    <script>
+    /* ═══════════════════════════════════════════════
+       Mini Test Framework
+    ═══════════════════════════════════════════════ */
+    const __suites  = [];
+    const __results = [];
+    let   __currentSuite = null;
+
+    window.describe = function(name, fn) {
+        __currentSuite = { name, tests: [] };
+        __suites.push(__currentSuite);
+        fn();
+        __currentSuite = null;
+    };
+
+    window.test = function(name, fn) {
+        let pass = true, error = null;
+        try { fn(); }
+        catch(e) { pass = false; error = e.message; }
+        const row = { name, pass, error };
+        if (__currentSuite) __currentSuite.tests.push(row);
+        __results.push(row);
+    };
+
+    window.expect = function(actual) {
+        return {
+            toBe(expected) {
+                if (actual !== expected)
+                    throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+            },
+            toEqual(expected) {
+                const a = JSON.stringify(actual), b = JSON.stringify(expected);
+                if (a !== b) throw new Error(`Expected ${b}, got ${a}`);
+            },
+            toBeNull() {
+                if (actual !== null) throw new Error(`Expected null, got ${JSON.stringify(actual)}`);
+            },
+            toContain(item) {
+                if (!actual.includes(item))
+                    throw new Error(`Expected to contain ${JSON.stringify(item)}`);
+            },
+            toHaveLength(len) {
+                if ((actual || []).length !== len)
+                    throw new Error(`Expected length ${len}, got ${(actual||[]).length}`);
+            },
+            toBeGreaterThan(n) {
+                if (actual <= n) throw new Error(`Expected ${actual} > ${n}`);
+            },
+            toBeCloseTo(expected, digits = 2) {
+                const factor = Math.pow(10, digits);
+                if (Math.round(actual * factor) !== Math.round(expected * factor))
+                    throw new Error(`Expected ~${expected}, got ${actual}`);
+            },
+            toBeTruthy() {
+                if (!actual) throw new Error(`Expected truthy, got ${JSON.stringify(actual)}`);
+            },
+            toBeFalsy() {
+                if (actual) throw new Error(`Expected falsy, got ${JSON.stringify(actual)}`);
+            }
+        };
+    };
+    </script>
+
+    <!-- 3. Test suite (uses framework defined above) -->
     <script src="unit.test.js"></script>
 
+    <!-- 4. Render results after all tests ran -->
     <script>
-        function runTests() {
-            document.getElementById('results').innerHTML = '';
-            document.getElementById('summary').style.display = 'none';
+    (function render() {
+        const pass  = __results.filter(r => r.pass).length;
+        const fail  = __results.filter(r => !r.pass).length;
+        const total = __results.length;
 
-            // Collect console groups as suites
-            const suites = {};
-            let currentSuite = '__top__';
+        // Summary bar
+        document.getElementById('summary').innerHTML = `
+            <span class="stat stat-pass">✅ ${pass} passed</span>
+            <span class="stat stat-fail">❌ ${fail} failed</span>
+            <span class="stat stat-total">📊 ${total} total</span>
+        `;
 
-            const origGroup = console.group.bind(console);
-            const origGroupEnd = console.groupEnd.bind(console);
-            const origLog = console.log.bind(console);
-            const origError = console.error.bind(console);
+        // Suite blocks
+        const resEl = document.getElementById('results');
+        resEl.innerHTML = '';
+        __suites.forEach(suite => {
+            const passC = suite.tests.filter(t => t.pass).length;
+            const failC = suite.tests.filter(t => !t.pass).length;
 
-            // Re-run tests capturing output
-            // Instead, we rely on the results array populated by unit.test.js
-            // Re-execute by reloading the script dynamically
+            const block = document.createElement('div');
+            block.className = 'suite-block';
 
-            // Since unit.test.js already ran on load, use window.__testSummary
-            const summary = window.__testSummary();
-
-            // Re-render from results array
-            renderResults(window.__suiteResults || [], summary);
-        }
-
-        // We intercept describe/test to capture suite structure
-        const __suites = [];
-        let __currentSuite = null;
-
-        // Override describe/test before unit.test.js runs
-        const _describe = window.describe;
-        const _test      = window.test;
-
-        window.describe = function(name, fn) {
-            __currentSuite = { name, tests: [] };
-            __suites.push(__currentSuite);
-            fn();
-            __currentSuite = null;
-        };
-
-        window.test = function(name, fn) {
-            let pass = true, error = null;
-            try { fn(); }
-            catch(e) { pass = false; error = e.message; }
-            const row = { name, pass, error };
-            if (__currentSuite) __currentSuite.tests.push(row);
-            // also push to global results
-            results.push({ pass, name, error });
-            if (pass) console.log(`  ✅ ${name}`);
-            else      console.error(`  ❌ ${name}: ${error}`);
-        };
-
-        window.__suiteResults = __suites;
-
-        function renderResults(suites, summary) {
-            const sumEl = document.getElementById('summary');
-            sumEl.style.display = 'block';
-            sumEl.innerHTML = `
-                <span class="stat stat-pass">✅ ${summary.pass} passed</span>
-                <span class="stat stat-fail">❌ ${summary.fail} failed</span>
-                <span class="stat stat-total">📊 ${summary.total} total</span>
-            `;
-
-            const resEl = document.getElementById('results');
-            resEl.innerHTML = '';
-
-            suites.forEach(suite => {
-                const passCount = suite.tests.filter(t => t.pass).length;
-                const failCount = suite.tests.filter(t => !t.pass).length;
-                const block = document.createElement('div');
-                block.className = 'suite-block';
-                const header = document.createElement('div');
-                header.className = 'suite-header';
-                header.innerHTML = `
+            block.innerHTML = `
+                <div class="suite-header">
                     <span>📦 ${suite.name}</span>
                     <span>
-                        <span class="badge badge-pass">${passCount} ✅</span>
-                        ${failCount > 0 ? `<span class="badge badge-fail">${failCount} ❌</span>` : ''}
+                        <span class="badge badge-pass">${passC} ✅</span>
+                        ${failC > 0 ? `<span class="badge badge-fail">${failC} ❌</span>` : ''}
                     </span>
-                `;
-                const body = document.createElement('div');
-                body.className = 'suite-tests';
-                suite.tests.forEach(t => {
-                    const row = document.createElement('div');
-                    row.className = `test-row ${t.pass ? 'test-pass' : 'test-fail'}`;
-                    row.innerHTML = `
-                        <span class="test-icon">${t.pass ? '✅' : '❌'}</span>
-                        <div class="test-name">
-                            ${t.name}
-                            ${t.error ? `<div class="test-error">→ ${t.error}</div>` : ''}
+                </div>
+                <div class="suite-tests">
+                    ${suite.tests.map(t => `
+                        <div class="test-row ${t.pass ? 'test-pass' : 'test-fail'}">
+                            <span class="test-icon">${t.pass ? '✅' : '❌'}</span>
+                            <div class="test-name">
+                                ${t.name}
+                                ${t.error ? `<div class="test-error">→ ${t.error}</div>` : ''}
+                            </div>
                         </div>
-                    `;
-                    body.appendChild(row);
-                });
-                block.appendChild(header);
-                block.appendChild(body);
-                resEl.appendChild(block);
-            });
-        }
-
-        // Auto-run on load
-        document.addEventListener('DOMContentLoaded', () => {
-            // unit.test.js already executed via <script> tag above,
-            // but we need to re-run with our overridden describe/test.
-            // The overrides are in place before unit.test.js loads, so
-            // just render the captured results.
-            const summary = window.__testSummary ? window.__testSummary() : { pass: 0, fail: 0, total: 0 };
-            renderResults(window.__suiteResults || [], summary);
+                    `).join('')}
+                </div>
+            `;
+            resEl.appendChild(block);
         });
+
+        // Also log to console
+        console.log(`\nTest Results: ${pass} passed, ${fail} failed, ${total} total`);
+        if (fail > 0) {
+            __results.filter(r => !r.pass).forEach(r => console.error(`❌ ${r.name}: ${r.error}`));
+        }
+    })();
     </script>
 </body>
 </html>
