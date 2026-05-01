@@ -31,7 +31,8 @@ body {
 
 /* ── Container ───────────────────────────────────── */
 .app-container {
-    max-width: 1400px;
+    max-width: 100%;
+    min-height: calc(100vh - 32px);
     margin: 0 auto;
     background: var(--card);
     border-radius: var(--radius);
@@ -230,7 +231,8 @@ h1 {
 
 .chart-box {
     position: relative;
-    height: 280px;
+    height: 38vh;
+    min-height: 250px;
     background: white;
     border-radius: var(--radius);
     padding: 12px;
@@ -675,6 +677,7 @@ h1 {
     .tabs-mobile  { display: block; }
     .params-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
     .brewing-layout { flex-direction: column; }
+    .left-tooltip-panel { display: none !important; }
     .control-panel { display: none; }
     .mobile-control-toggle { display: block; }
     .chart-box { height: 220px; }
