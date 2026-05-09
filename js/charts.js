@@ -209,36 +209,23 @@ function initCharts() {
         id: 'verticalHoverLine',
         afterDraw: chart => {
             const activeIdx = isTooltipPinned ? pinnedIndex : crosshairIndex;
-            if (activeIdx === null) return;
+            if (activeIdx === null || !chart.scales.x) return;
 
-            let x = null;
-            for (let i = 0; i < chart.data.datasets.length; i++) {
-                const meta = chart.getDatasetMeta(i);
-                if (meta && meta.data && meta.data[activeIdx]) {
-                    x = meta.data[activeIdx].x;
-                    break;
-                }
-            }
-            if (x === null && chart.scales.x) {
-                const lbl = chart.data.labels?.[activeIdx];
-                if (lbl !== undefined) x = chart.scales.x.getPixelForValue(lbl);
-            }
-
-            if (x !== null) {
-                const ctx = chart.ctx;
-                const topY = chart.scales.y.top;
-                const bottomY = chart.scales.y.bottom;
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(x, topY);
-                ctx.lineTo(x, bottomY);
-                ctx.lineWidth = 1;
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.restore();
-            }
+            // Use scale directly so both charts always produce the same pixel x
+            // for the same time value, regardless of dataset length differences.
+            const lbl = chart.data.labels?.[activeIdx];
+            if (lbl === undefined) return;
+            const x = chart.scales.x.getPixelForValue(lbl);
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x, chart.scales.y.top);
+            ctx.lineTo(x, chart.scales.y.bottom);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.restore();
         }
     };
 
@@ -258,15 +245,22 @@ function initCharts() {
     };
 
     const onHoverSync = (e, elements, chart) => {
+        // When pinned, ignore all hover — prevents stale crosshairIndex updates
+        // even if Chart.js still fires onHover despite freezeInteractionPlugin.
+        if (isTooltipPinned) return;
+
         const newIdx = elements.length ? (elements[0].element?.$context?.dataIndex ?? elements[0].index) : null;
         if (crosshairIndex !== newIdx) {
             crosshairIndex = newIdx;
             if (chart.canvas.id === 'weightChart' && flowTempChart) {
                 syncActiveElements(flowTempChart, newIdx);
-            }
-            if (chart.canvas.id === 'flowTempChart' && weightChart) {
+            } else if (chart.canvas.id === 'flowTempChart' && weightChart) {
                 syncActiveElements(weightChart, newIdx);
             }
+            // Chart.js redraws the source chart BEFORE calling onHover, so
+            // crosshairIndex was still the old value during that draw.
+            // Force a second draw now so the source chart uses the updated index.
+            chart.update('none');
         }
     };
 
