@@ -23,6 +23,16 @@
 
 ## 已完成
 
+### [圖表顯示修正]
+**類型**: fix
+**完成日期**: 2026-05-09
+**變更檔案**: `js/charts.js`
+- x 軸改用各資料集的 `d.time` 實際秒數作為 labels，並以兩圖最長資料集的時間範圍對齊，解決兩圖 x 軸顯示範圍不一致問題
+- `verticalHoverLinePlugin` 改用 `crosshairIndex`／`pinnedIndex` 直接決定繪製位置，不再依賴 `chart.tooltip._active`，修正從 weight 圖移動時 flow/temp 垂直線未更新的問題
+- 新增 fallback：無資料集時改從 `chart.scales.x.getPixelForValue(label)` 取得垂直線 x 座標
+- `pinnedMarkerPlugin` 改為滑鼠懸停時顯示空心圓（白底＋彩色邊框），點擊固定後顯示實心圓
+- `updateCharts()` 每次更新時明確設定 `flowTempChart.options.scales.y.min = -20`、`max = 20`，確保 y 軸範圍不被覆蓋
+
 ### [資料修正] (Round 2 — zero-inflated fix)
 **類型**: fix
 **完成日期**: 2026-05-09

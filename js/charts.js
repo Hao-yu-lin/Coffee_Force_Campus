@@ -159,6 +159,36 @@ function initCharts() {
     };
     let crosshairIndex = null;
     let isTooltipPinned = false;
+    let pinnedIndex = null;
+
+    const pinnedMarkerPlugin = {
+        id: 'pinnedMarker',
+        afterDatasetsDraw(chart) {
+            const activeIdx = isTooltipPinned ? pinnedIndex : crosshairIndex;
+            if (activeIdx === null) return;
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((ds, i) => {
+                if (!chart.isDatasetVisible(i)) return;
+                const meta = chart.getDatasetMeta(i);
+                const point = meta.data[activeIdx];
+                if (!point) return;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                if (isTooltipPinned) {
+                    ctx.fillStyle = ds.borderColor;
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = 'white';
+                    ctx.strokeStyle = ds.borderColor;
+                    ctx.lineWidth = 2;
+                    ctx.fill();
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+        }
+    };
 
     const freezeInteractionPlugin = {
         id: 'freezeInteraction',
@@ -166,9 +196,11 @@ function initCharts() {
             const event = args.event;
             if (event.type === 'click') {
                 isTooltipPinned = !isTooltipPinned;
-                // Allow the click event to be processed by Chart.js to update active elements if needed
+                pinnedIndex = isTooltipPinned ? crosshairIndex : null;
+                if (weightChart) weightChart.update('none');
+                if (flowTempChart) flowTempChart.update('none');
             } else if (isTooltipPinned) {
-                return false; // Stop processing hover/mouseout events while pinned
+                return false;
             }
         }
     };
@@ -176,56 +208,52 @@ function initCharts() {
     const verticalHoverLinePlugin = {
         id: 'verticalHoverLine',
         afterDraw: chart => {
-            let activeIdx = null;
+            const activeIdx = isTooltipPinned ? pinnedIndex : crosshairIndex;
+            if (activeIdx === null) return;
 
-            if (chart.tooltip?._active && chart.tooltip._active.length) {
-                activeIdx = chart.tooltip._active[0].element.$context?.dataIndex ?? chart.tooltip._active[0].index;
-            } else if (crosshairIndex !== null) {
-                activeIdx = crosshairIndex;
+            let x = null;
+            for (let i = 0; i < chart.data.datasets.length; i++) {
+                const meta = chart.getDatasetMeta(i);
+                if (meta && meta.data && meta.data[activeIdx]) {
+                    x = meta.data[activeIdx].x;
+                    break;
+                }
+            }
+            if (x === null && chart.scales.x) {
+                const lbl = chart.data.labels?.[activeIdx];
+                if (lbl !== undefined) x = chart.scales.x.getPixelForValue(lbl);
             }
 
-            if (activeIdx !== null) {
-                let x = null;
-                for (let i = 0; i < chart.data.datasets.length; i++) {
-                    const meta = chart.getDatasetMeta(i);
-                    if (meta && meta.data && meta.data[activeIdx]) {
-                        x = meta.data[activeIdx].x;
-                        break;
-                    }
-                }
+            if (x !== null) {
+                const ctx = chart.ctx;
+                const topY = chart.scales.y.top;
+                const bottomY = chart.scales.y.bottom;
 
-                if (x !== null) {
-                    const ctx = chart.ctx;
-                    const topY = chart.scales.y.top;
-                    const bottomY = chart.scales.y.bottom;
-
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(x, topY);
-                    ctx.lineTo(x, bottomY);
-                    ctx.lineWidth = 1;
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-                    ctx.setLineDash([4, 4]);
-                    ctx.stroke();
-                    ctx.restore();
-                }
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, topY);
+                ctx.lineTo(x, bottomY);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.restore();
             }
         }
     };
 
     const syncActiveElements = (targetChart, newIdx) => {
         if (!targetChart) return;
-        if (newIdx === null) {
-            targetChart.setActiveElements([]);
-        } else {
-            const elements = [];
+        const elements = [];
+        if (newIdx !== null) {
             for (let i = 0; i < targetChart.data.datasets.length; i++) {
                 if (targetChart.isDatasetVisible(i)) {
                     elements.push({ datasetIndex: i, index: newIdx });
                 }
             }
-            targetChart.setActiveElements(elements);
         }
+        targetChart.setActiveElements(elements);
+        targetChart.tooltip.setActiveElements(elements, { x: 0, y: 0 });
         targetChart.update('none');
     };
 
@@ -245,7 +273,7 @@ function initCharts() {
     weightChart = new Chart(document.getElementById('weightChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [] },
-        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin],
+        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
         options: {
             onHover: onHoverSync,
             responsive: true, maintainAspectRatio: false,
@@ -254,7 +282,7 @@ function initCharts() {
             layout: { padding: 0 },
             scales: {
                 x: { title: { display: false }, grid: { color: 'rgba(0,0,0,0.08)' } },
-                y: { title: { display: true, text: 'Weight (g)' }, grid: { color: 'rgba(0,0,0,0.08)' } }
+                y: { afterFit(s) { s.width = 60; }, title: { display: true, text: 'Weight (g)' }, grid: { color: 'rgba(0,0,0,0.08)' } }
             }
         }
     });
@@ -262,7 +290,7 @@ function initCharts() {
     flowTempChart = new Chart(document.getElementById('flowTempChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [] },
-        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin],
+        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
         options: {
             onHover: onHoverSync,
             responsive: true, maintainAspectRatio: false,
@@ -271,7 +299,7 @@ function initCharts() {
             layout: { padding: 0 },
             scales: {
                 x: { title: { display: true, text: 'Time (s)' }, grid: { color: 'rgba(0,0,0,0.08)' } },
-                y: { title: { display: true, text: 'Flow / Temp' }, grid: { color: 'rgba(0,0,0,0.08)' } }
+                y: { min: -20, max: 20, afterFit(s) { s.width = 60; }, title: { display: true, text: 'Flow / Temp' }, grid: { color: 'rgba(0,0,0,0.08)' } }
             }
         }
     });
@@ -303,8 +331,15 @@ function updateCharts() {
         return;
     }
 
-    const maxLen = visible.reduce((m, d) => Math.max(m, d.time.length), 0);
-    const labels = Array.from({ length: maxLen }, (_, i) => i);
+    const longestDs = visible.reduce((best, d) => d.time.length > best.time.length ? d : best, visible[0]);
+    const labels = longestDs.time;
+    const maxTime = labels.length > 0 ? labels[labels.length - 1] : 0;
+
+    // Force both charts to show the same x range (actual time values) so they stay visually aligned
+    weightChart.options.scales.x.min = 0;
+    weightChart.options.scales.x.max = maxTime;
+    flowTempChart.options.scales.x.min = 0;
+    flowTempChart.options.scales.x.max = maxTime;
 
     weightChart.data.labels = labels;
     weightChart.data.datasets = showWeight ? visible.map(d => ({
@@ -342,19 +377,8 @@ function updateCharts() {
     }));
     flowTempChart.data.labels   = labels;
     flowTempChart.data.datasets = ftDatasets;
+    flowTempChart.options.scales.y.min = -20;
+    flowTempChart.options.scales.y.max = 20;
 
-    // Robust Y axis for flow/temp: exclude outliers, allow negative
-    const ftVals = [
-        ...(showFlow ? visible.flatMap(d => d.flow || []) : []),
-        ...(showTemp ? visible.flatMap(d => (d.temp || []).filter(v => v > 0)) : [])
-    ];
-    const ftRange = robustYRange(ftVals);
-    if (ftRange) {
-        flowTempChart.options.scales.y.min = ftRange.min;
-        flowTempChart.options.scales.y.max = ftRange.max;
-    } else {
-        delete flowTempChart.options.scales.y.min;
-        delete flowTempChart.options.scales.y.max;
-    }
     flowTempChart.update();
 }
