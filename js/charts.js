@@ -90,8 +90,7 @@ const externalTooltipHandler = (context) => {
         }
 
         if (tooltip.opacity === 0) {
-            tooltipEl.innerHTML = '<div style="color: #888; text-align: center; margin-top: 20px;">游標移至圖表以顯示詳細數據</div>';
-            return;
+            return; // Panel is cleared explicitly by mouseleave handler, not by tooltip hide
         }
 
         if (tooltip.body) {
@@ -229,48 +228,73 @@ function initCharts() {
         }
     };
 
-    const syncActiveElements = (targetChart, newIdx) => {
-        if (!targetChart) return;
-        const elements = [];
-        if (newIdx !== null) {
-            for (let i = 0; i < targetChart.data.datasets.length; i++) {
-                if (targetChart.isDatasetVisible(i)) {
-                    elements.push({ datasetIndex: i, index: newIdx });
-                }
+    // Update both charts simultaneously from a single computed index.
+    // Only the source chart gets a live tooltip (to update the left panel);
+    // the other chart hides its tooltip so it cannot overwrite the panel.
+    const syncBothCharts = (newIdx, sourceChart, pos) => {
+        [weightChart, flowTempChart].forEach(chart => {
+            if (!chart) return;
+            const elements = [];
+            if (newIdx !== null) {
+                chart.data.datasets.forEach((ds, i) => {
+                    if (!chart.isDatasetVisible(i)) return;
+                    if (ds.data && ds.data[newIdx] !== undefined && ds.data[newIdx] !== null) {
+                        elements.push({ datasetIndex: i, index: newIdx });
+                    }
+                });
             }
-        }
-        targetChart.setActiveElements(elements);
-        targetChart.tooltip.setActiveElements(elements, { x: 0, y: 0 });
-        targetChart.update('none');
+            chart.setActiveElements(elements);
+            if (chart === sourceChart) {
+                chart.tooltip.setActiveElements(elements, pos || { x: 0, y: 0 });
+            } else {
+                chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+            }
+            chart.update('none');
+        });
     };
 
-    // afterEvent fires after Chart.js has already updated getActiveElements(),
-    // so the index is always current — no timing race with the source chart redraw.
-    const crosshairSyncPlugin = {
-        id: 'crosshairSync',
-        afterEvent(chart, args) {
-            if (isTooltipPinned) return;
-            const type = args.event.type;
-            if (type !== 'mousemove' && type !== 'mouseleave') return;
-
-            const active = chart.getActiveElements();
-            const newIdx = (type === 'mousemove' && active.length) ? active[0].index : null;
-
-            if (crosshairIndex !== newIdx) {
-                crosshairIndex = newIdx;
-                const other = chart.canvas.id === 'weightChart' ? flowTempChart : weightChart;
-                if (other) syncActiveElements(other, newIdx);
+    const handleChartMouseMove = (e, chart) => {
+        if (isTooltipPinned) return;
+        const rect = chart.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const chartArea = chart.chartArea;
+        const labels = chart.data.labels;
+        if (!labels || !labels.length || !chartArea) return;
+        if (mouseX < chartArea.left || mouseX > chartArea.right) {
+            if (crosshairIndex !== null) {
+                crosshairIndex = null;
+                syncBothCharts(null, chart, null);
             }
+            return;
         }
+        const ratio = (mouseX - chartArea.left) / (chartArea.right - chartArea.left);
+        const newIdx = Math.min(labels.length - 1, Math.max(0, Math.round(ratio * (labels.length - 1))));
+        if (crosshairIndex !== newIdx) {
+            crosshairIndex = newIdx;
+            syncBothCharts(newIdx, chart, { x: mouseX, y: e.clientY - rect.top });
+        }
+    };
+
+    const handleChartMouseLeave = () => {
+        if (isTooltipPinned) return;
+        crosshairIndex = null;
+        [weightChart, flowTempChart].forEach(chart => {
+            if (!chart) return;
+            chart.setActiveElements([]);
+            chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+            chart.update('none');
+        });
+        const tooltipEl = document.getElementById('leftTooltipPanel');
+        if (tooltipEl) tooltipEl.innerHTML = '<div style="color: #888; text-align: center; margin-top: 20px;">游標移至圖表以顯示詳細數據</div>';
     };
 
     weightChart = new Chart(document.getElementById('weightChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [] },
-        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, crosshairSyncPlugin],
+        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
         options: {
+            events: ['click'],
             responsive: true, maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false }, tooltip: commonTooltip },
             layout: { padding: 0 },
             scales: {
@@ -283,10 +307,10 @@ function initCharts() {
     flowTempChart = new Chart(document.getElementById('flowTempChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [] },
-        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, crosshairSyncPlugin],
+        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
         options: {
+            events: ['click'],
             responsive: true, maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false }, tooltip: commonTooltip },
             layout: { padding: 0 },
             scales: {
@@ -295,6 +319,11 @@ function initCharts() {
             }
         }
     });
+
+    document.getElementById('weightChart').addEventListener('mousemove', e => handleChartMouseMove(e, weightChart));
+    document.getElementById('flowTempChart').addEventListener('mousemove', e => handleChartMouseMove(e, flowTempChart));
+    document.getElementById('weightChart').addEventListener('mouseleave', handleChartMouseLeave);
+    document.getElementById('flowTempChart').addEventListener('mouseleave', handleChartMouseLeave);
 }
 
 function updateCharts() {
