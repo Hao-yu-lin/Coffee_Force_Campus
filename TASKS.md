@@ -23,6 +23,17 @@
 
 ## 已完成
 
+### [修改滑鼠互動的邏輯]
+**類型**: refactor
+**完成日期**: 2026-05-09
+**變更檔案**: `js/charts.js`
+- 移除 Chart.js `afterEvent`/`onHover` 機制，改為直接監聽兩個 canvas 的 `mousemove`
+- `handleChartMouseMove`：從像素位置計算 index（chartArea 邊界 + ratio），確保滑動即時對應
+- `syncBothCharts(newIdx, sourceChart, pos)`：同時更新兩圖 `setActiveElements`；source chart 觸發 tooltip 更新左側面板，另一圖隱藏 tooltip 避免覆蓋
+- `handleChartMouseLeave`：顯式清除游標狀態並重置左側面板文字
+- 未包含該 x 點資料的 dataset 自動略過，不加入 active elements
+- `events: ['click']` 關閉 Chart.js 自動 hover 偵測，避免與手動邏輯衝突
+
 ### [bug 修正] weight ↔ flow/temp 游標連動
 **類型**: fix
 **完成日期**: 2026-05-09
