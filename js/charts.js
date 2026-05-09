@@ -313,6 +313,11 @@ function updateCharts() {
         borderColor: d.color, backgroundColor: `${d.color}20`,
         borderWidth: 2.5, fill: false, tension: 0.1, pointRadius: 0
     })) : [];
+
+    // Robust Y axis for weight: exclude outliers from scale, pin min to 0
+    const wRange = robustYRange(showWeight ? visible.flatMap(d => d.weight || []) : []);
+    weightChart.options.scales.y.min = 0;
+    weightChart.options.scales.y.max = wRange ? wRange.max : undefined;
     weightChart.update();
 
     const ftDatasets = [];
@@ -330,5 +335,14 @@ function updateCharts() {
     }));
     flowTempChart.data.labels   = labels;
     flowTempChart.data.datasets = ftDatasets;
+
+    // Robust Y axis for flow/temp: exclude outliers, allow negative
+    const ftVals = [
+        ...(showFlow ? visible.flatMap(d => d.flow || []) : []),
+        ...(showTemp ? visible.flatMap(d => (d.temp || []).filter(v => v > 0)) : [])
+    ];
+    const ftRange = robustYRange(ftVals);
+    flowTempChart.options.scales.y.min = ftRange ? ftRange.min : undefined;
+    flowTempChart.options.scales.y.max = ftRange ? ftRange.max : undefined;
     flowTempChart.update();
 }

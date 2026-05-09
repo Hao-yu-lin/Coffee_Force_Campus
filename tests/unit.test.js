@@ -411,3 +411,48 @@ describe('getDatasetColor', () => {
         expect(getDatasetColor(last)).toBe(DATASET_COLORS[last]);
     });
 });
+
+/* ─── Tests: robustYRange ────────────────────────────────────── */
+describe('robustYRange', () => {
+    test('returns null for empty array', () => {
+        expect(robustYRange([])).toBeNull();
+    });
+
+    test('returns null for fewer than 4 values', () => {
+        expect(robustYRange([1, 2, 3])).toBeNull();
+    });
+
+    test('min is 0 when all values are non-negative', () => {
+        const r = robustYRange([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100]);
+        expect(r.min).toBe(0);
+    });
+
+    test('max excludes positive spike outlier', () => {
+        // normal range 1-10, spike at 100 → max should be ~10.9, not ~110
+        const r = robustYRange([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100]);
+        expect(r.max).toBeCloseTo(10.9, 0);
+    });
+
+    test('min is negative when inlier floor is below zero', () => {
+        // flow-rate-like data: normal -2 to 6, spikes at -50 and 100
+        const r = robustYRange([-2, -1, 0, 1, 2, 3, 4, 5, 6, -50, 100]);
+        expect(r.min).toBeLessThan(0);
+    });
+
+    test('max excludes negative spike too, keeps reasonable upper bound', () => {
+        const r = robustYRange([-2, -1, 0, 1, 2, 3, 4, 5, 6, -50, 100]);
+        expect(r.max).toBeCloseTo(6.8, 0);
+    });
+
+    test('handles constant values — min is 0, max has padding', () => {
+        const r = robustYRange([5, 5, 5, 5, 5, 5]);
+        expect(r.min).toBe(0);
+        expect(r.max).toBeCloseTo(5.5, 1);
+    });
+
+    test('ignores non-finite values (NaN, Infinity)', () => {
+        const r = robustYRange([1, 2, 3, 4, 5, NaN, Infinity, -Infinity]);
+        expect(r).toBeTruthy();
+        expect(r.min).toBe(0);
+    });
+});

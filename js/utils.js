@@ -131,3 +131,30 @@ function getAkirakokiMinLen(pd) {
 function getDatasetColor(index) {
     return DATASET_COLORS[index % DATASET_COLORS.length];
 }
+
+/**
+ * Calculate a robust Y-axis range by excluding IQR-based outliers.
+ * Points outside the returned range are still drawn but the axis won't be
+ * stretched to accommodate them.
+ * @param {number[]} values - all data values across visible datasets
+ * @returns {{ min: number, max: number } | null} null when < 4 values
+ */
+function robustYRange(values) {
+    const nums = values.filter(v => typeof v === 'number' && isFinite(v));
+    if (nums.length < 4) return null;
+    const sorted = [...nums].sort((a, b) => a - b);
+    const n = sorted.length;
+    const q1 = sorted[Math.floor(n * 0.25)];
+    const q3 = sorted[Math.floor(n * 0.75)];
+    const iqr = q3 - q1;
+    const loFence = q1 - 1.5 * iqr;
+    const hiFence = q3 + 1.5 * iqr;
+    const inliers = sorted.filter(v => v >= loFence && v <= hiFence);
+    const lo = inliers.length ? inliers[0]                    : q1;
+    const hi = inliers.length ? inliers[inliers.length - 1]   : q3;
+    const pad = (hi - lo) * 0.1 || Math.abs(hi) * 0.1 || 1;
+    return {
+        min: lo >= 0 ? 0 : lo - pad,
+        max: hi + pad
+    };
+}
