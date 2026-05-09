@@ -244,18 +244,22 @@ function initCharts() {
         targetChart.update('none');
     };
 
-    const onHoverSync = (e, elements, chart) => {
-        // When pinned, ignore all hover — prevents stale crosshairIndex updates
-        // even if Chart.js still fires onHover despite freezeInteractionPlugin.
-        if (isTooltipPinned) return;
+    // afterEvent fires after Chart.js has already updated getActiveElements(),
+    // so the index is always current — no timing race with the source chart redraw.
+    const crosshairSyncPlugin = {
+        id: 'crosshairSync',
+        afterEvent(chart, args) {
+            if (isTooltipPinned) return;
+            const type = args.event.type;
+            if (type !== 'mousemove' && type !== 'mouseleave') return;
 
-        const newIdx = elements.length ? (elements[0].element?.$context?.dataIndex ?? elements[0].index) : null;
-        if (crosshairIndex !== newIdx) {
-            crosshairIndex = newIdx;
-            if (chart.canvas.id === 'weightChart' && flowTempChart) {
-                syncActiveElements(flowTempChart, newIdx);
-            } else if (chart.canvas.id === 'flowTempChart' && weightChart) {
-                syncActiveElements(weightChart, newIdx);
+            const active = chart.getActiveElements();
+            const newIdx = (type === 'mousemove' && active.length) ? active[0].index : null;
+
+            if (crosshairIndex !== newIdx) {
+                crosshairIndex = newIdx;
+                const other = chart.canvas.id === 'weightChart' ? flowTempChart : weightChart;
+                if (other) syncActiveElements(other, newIdx);
             }
         }
     };
@@ -263,9 +267,8 @@ function initCharts() {
     weightChart = new Chart(document.getElementById('weightChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [] },
-        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
+        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, crosshairSyncPlugin],
         options: {
-            onHover: onHoverSync,
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false }, tooltip: commonTooltip },
@@ -280,9 +283,8 @@ function initCharts() {
     flowTempChart = new Chart(document.getElementById('flowTempChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [] },
-        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
+        plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, crosshairSyncPlugin],
         options: {
-            onHover: onHoverSync,
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false }, tooltip: commonTooltip },
@@ -293,15 +295,6 @@ function initCharts() {
             }
         }
     });
-
-    const handleMouseOut = () => {
-        if (isTooltipPinned) return;
-        crosshairIndex = null;
-        if (weightChart) syncActiveElements(weightChart, null);
-        if (flowTempChart) syncActiveElements(flowTempChart, null);
-    };
-    document.getElementById('weightChart').addEventListener('mouseleave', handleMouseOut);
-    document.getElementById('flowTempChart').addEventListener('mouseleave', handleMouseOut);
 }
 
 function updateCharts() {
