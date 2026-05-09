@@ -257,10 +257,6 @@ function initCharts() {
             } else if (chart.canvas.id === 'flowTempChart' && weightChart) {
                 syncActiveElements(weightChart, newIdx);
             }
-            // Chart.js redraws the source chart BEFORE calling onHover, so
-            // crosshairIndex was still the old value during that draw.
-            // Force a second draw now so the source chart uses the updated index.
-            chart.update('none');
         }
     };
 
