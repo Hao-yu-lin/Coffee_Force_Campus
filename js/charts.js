@@ -314,10 +314,17 @@ function updateCharts() {
         borderWidth: 2.5, fill: false, tension: 0.1, pointRadius: 0
     })) : [];
 
-    // Robust Y axis for weight: exclude outliers from scale, pin min to 0
-    const wRange = robustYRange(showWeight ? visible.flatMap(d => d.weight || []) : []);
+    // 99th-percentile cap for weight: monotonic cumulative data breaks IQR
+    const allW = (showWeight ? visible.flatMap(d => d.weight || []) : [])
+        .filter(v => typeof v === 'number' && isFinite(v));
     weightChart.options.scales.y.min = 0;
-    weightChart.options.scales.y.max = wRange ? wRange.max : undefined;
+    if (allW.length >= 4) {
+        const sortedW = [...allW].sort((a, b) => a - b);
+        const p99 = sortedW[Math.min(sortedW.length - 1, Math.floor(sortedW.length * 0.99))];
+        weightChart.options.scales.y.max = p99 * 1.08;
+    } else {
+        delete weightChart.options.scales.y.max;
+    }
     weightChart.update();
 
     const ftDatasets = [];
@@ -342,7 +349,12 @@ function updateCharts() {
         ...(showTemp ? visible.flatMap(d => (d.temp || []).filter(v => v > 0)) : [])
     ];
     const ftRange = robustYRange(ftVals);
-    flowTempChart.options.scales.y.min = ftRange ? ftRange.min : undefined;
-    flowTempChart.options.scales.y.max = ftRange ? ftRange.max : undefined;
+    if (ftRange) {
+        flowTempChart.options.scales.y.min = ftRange.min;
+        flowTempChart.options.scales.y.max = ftRange.max;
+    } else {
+        delete flowTempChart.options.scales.y.min;
+        delete flowTempChart.options.scales.y.max;
+    }
     flowTempChart.update();
 }

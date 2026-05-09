@@ -455,4 +455,15 @@ describe('robustYRange', () => {
         expect(r).toBeTruthy();
         expect(r.min).toBe(0);
     });
+
+    test('zero-inflated flow data: max excludes spike, uses non-zero IQR', () => {
+        // ~70% zeros (between pours), normal flow 1-8 g/s, spikes at 30 and 65
+        const zeros = Array(70).fill(0);
+        const normal = [1, 2, 3, 4, 5, 6, 7, 8, 2, 4, 6, 8, 1, 3, 5, 7, 2, 4, 6, 3];
+        const spikes = [30, 65];
+        const r = robustYRange([...zeros, ...normal, ...spikes]);
+        expect(r).toBeTruthy();
+        expect(r.max).toBeLessThan(15);
+        expect(r.min).toBe(0);
+    });
 });

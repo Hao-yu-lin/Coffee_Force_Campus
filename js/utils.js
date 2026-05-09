@@ -142,7 +142,11 @@ function getDatasetColor(index) {
 function robustYRange(values) {
     const nums = values.filter(v => typeof v === 'number' && isFinite(v));
     if (nums.length < 4) return null;
-    const sorted = [...nums].sort((a, b) => a - b);
+    // For zero-inflated data (e.g. flow rate), skip near-zero values when computing IQR
+    // so the fence is based on actual signal values, not the zero-heavy baseline.
+    const nonTrivial = nums.filter(v => Math.abs(v) > 0.1);
+    const base = nonTrivial.length >= 4 ? nonTrivial : nums;
+    const sorted = [...base].sort((a, b) => a - b);
     const n = sorted.length;
     const q1 = sorted[Math.floor(n * 0.25)];
     const q3 = sorted[Math.floor(n * 0.75)];
