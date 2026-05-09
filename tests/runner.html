@@ -50,21 +50,23 @@
 </head>
 <body>
     <h1>☕ Coffee Force Campus</h1>
-    <p class="subtitle">Unit Test Runner — utils.js pure functions</p>
+    <p class="subtitle">Test Runner — unit tests (utils.js) + integration tests (real CSV files)</p>
     <div id="summary"></div>
     <div id="results"></div>
 
     <!-- 1. App constants (must load before utils) -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="../js/constants.js"></script>
     <script src="../js/utils.js"></script>
 
     <!-- 2. Test framework (must load BEFORE unit.test.js) -->
     <script>
     /* ═══════════════════════════════════════════════
-       Mini Test Framework
+       Mini Test Framework — supports sync + async tests
     ═══════════════════════════════════════════════ */
-    const __suites  = [];
-    const __results = [];
+    const __suites       = [];
+    const __results      = [];
+    const __testPromises = [];
     let   __currentSuite = null;
 
     window.describe = function(name, fn) {
@@ -75,12 +77,28 @@
     };
 
     window.test = function(name, fn) {
-        let pass = true, error = null;
-        try { fn(); }
-        catch(e) { pass = false; error = e.message; }
-        const row = { name, pass, error };
-        if (__currentSuite) __currentSuite.tests.push(row);
-        __results.push(row);
+        const suite = __currentSuite;
+        let result;
+        try { result = fn(); }
+        catch(e) {
+            const row = { name, pass: false, error: e.message };
+            if (suite) suite.tests.push(row);
+            __results.push(row);
+            return;
+        }
+        if (result && typeof result.then === 'function') {
+            const row = { name, pass: null, error: null };
+            if (suite) suite.tests.push(row);
+            __results.push(row);
+            __testPromises.push(result.then(
+                ()  => { row.pass = true; },
+                (e) => { row.pass = false; row.error = e.message; }
+            ));
+        } else {
+            const row = { name, pass: true, error: null };
+            if (suite) suite.tests.push(row);
+            __results.push(row);
+        }
     };
 
     window.expect = function(actual) {
@@ -122,14 +140,15 @@
     };
     </script>
 
-    <!-- 3. Test suite (uses framework defined above) -->
+    <!-- 3. Test suites (use framework defined above) -->
     <script src="unit.test.js"></script>
+    <script src="integration.test.js"></script>
 
-    <!-- 4. Render results after all tests ran -->
+    <!-- 4. Render results after all tests (sync + async) complete -->
     <script>
-    (function render() {
-        const pass  = __results.filter(r => r.pass).length;
-        const fail  = __results.filter(r => !r.pass).length;
+    Promise.all(__testPromises).then(function render() {
+        const pass  = __results.filter(r => r.pass === true).length;
+        const fail  = __results.filter(r => r.pass === false).length;
         const total = __results.length;
 
         // Summary bar
@@ -143,8 +162,8 @@
         const resEl = document.getElementById('results');
         resEl.innerHTML = '';
         __suites.forEach(suite => {
-            const passC = suite.tests.filter(t => t.pass).length;
-            const failC = suite.tests.filter(t => !t.pass).length;
+            const passC = suite.tests.filter(t => t.pass === true).length;
+            const failC = suite.tests.filter(t => t.pass === false).length;
 
             const block = document.createElement('div');
             block.className = 'suite-block';
@@ -175,9 +194,9 @@
         // Also log to console
         console.log(`\nTest Results: ${pass} passed, ${fail} failed, ${total} total`);
         if (fail > 0) {
-            __results.filter(r => !r.pass).forEach(r => console.error(`❌ ${r.name}: ${r.error}`));
+            __results.filter(r => r.pass === false).forEach(r => console.error(`❌ ${r.name}: ${r.error}`));
         }
-    })();
+    });
     </script>
 </body>
 </html>

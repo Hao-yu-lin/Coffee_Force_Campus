@@ -121,6 +121,9 @@ function restoreAffectiveState(state) {
 /* ── Save / Load JSON ─────────────────────────── */
 
 function saveData() {
+    const now = new Date().toLocaleString('zh-TW');
+    document.getElementById('recordTime').value = now;
+
     if (activeDatasetId && allDatasets[activeDatasetId]) {
         ['beanWeight','totalWater','grindSize','waterTemp','bloomTime','tds','totalTime'].forEach(k => {
             const el = document.getElementById(k);
@@ -159,8 +162,9 @@ function loadHistory() {
         reader.onload = ev => {
             try {
                 const data = JSON.parse(ev.target.result);
-                if (data.name   !== undefined) document.getElementById('coffeeName').value    = data.name;
-                if (data.target !== undefined) document.getElementById('brewingTarget').value = data.target;
+                if (data.name      !== undefined) document.getElementById('coffeeName').value    = data.name;
+                if (data.target    !== undefined) document.getElementById('brewingTarget').value = data.target;
+                if (data.timestamp !== undefined) document.getElementById('recordTime').value    = data.timestamp;
                 if (data.datasets) {
                     allDatasets       = data.datasets;
                     datasetVisibility = data.dataset_visibility || {};
@@ -179,9 +183,11 @@ function loadHistory() {
                             if (el && !el.value && bp[k] !== undefined) el.value = bp[k];
                         });
                     }
+                    // Fallback for saves without per-dataset CVA (older formats)
+                    const targetDs = allDatasets[targetId];
+                    if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
+                    if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective);
                 }
-                if (data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
-                if (data.cva_affective)   restoreAffectiveState(data.cva_affective);
                 alert(`✅ 歷史檔案「${file.name}」讀取成功！`);
             } catch (err) { alert('❌ 讀取失敗：' + err.message); }
         };

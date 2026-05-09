@@ -4,8 +4,6 @@
 ═══════════════════════════════════════════════════ */
 
 function init() {
-    document.getElementById('recordTime').value = new Date().toLocaleString('zh-TW');
-
     document.getElementById('fileInput').addEventListener('change', handleFileSelect);
     document.getElementById('folderInput').addEventListener('change', handleFolderSelect);
     document.getElementById('fileInputMobile').addEventListener('change', handleFileSelect);
