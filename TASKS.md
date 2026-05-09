@@ -23,6 +23,15 @@
 
 ## 已完成
 
+### [資料修正] (Round 2 — zero-inflated fix)
+**類型**: fix
+**完成日期**: 2026-05-09
+**變更檔案**: `js/utils.js`, `js/charts.js`, `tests/unit.test.js`
+- `robustYRange`: 在計算 IQR 前先過濾 |v| ≤ 0.1 的近零值，解決 flow rate 零值過多導致 IQR 崩塌的問題
+- weight chart 改用 99th percentile 上限取代 IQR（單調累積資料 IQR 失效）
+- flow/temp scale 重設改用 `delete` 取代 `= undefined`，確保 Chart.js 正確還原預設自動縮放
+- 新增 zero-inflated 場景 unit test（73/73 通過）
+
 ### [資料修正]
 **類型**: fix
 **完成日期**: 2026-05-09
