@@ -125,6 +125,9 @@
             toBeGreaterThan(n) {
                 if (actual <= n) throw new Error(`Expected ${actual} > ${n}`);
             },
+            toBeLessThan(n) {
+                if (actual >= n) throw new Error(`Expected ${actual} < ${n}`);
+            },
             toBeCloseTo(expected, digits = 2) {
                 const factor = Math.pow(10, digits);
                 if (Math.round(actual * factor) !== Math.round(expected * factor))

@@ -1,0 +1,161 @@
+<div class="cva-mobile-switcher" id="cva-desc-mobile-list"></div>
+<div class="cva-layout">
+    <div class="cva-main">
+        <!-- Fragrance/Aroma -->
+        <div class="cva-section">
+            <h3><span>Fragrance/Aroma</span>
+                <div class="overall-intensity"><span>整體強度印象:</span>
+                    <select id="fragrance-overall">
+                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                    </select>
+                </div>
+            </h3>
+            <div class="stage-grid">
+                <div class="stage-item"><h4>Dry</h4><div class="intensity-grid" data-section="fragrance" data-stage="dry"></div></div>
+                <div class="stage-item"><h4>Bloom</h4><div class="intensity-grid" data-section="fragrance" data-stage="bloom"></div></div>
+                <div class="stage-item"><h4>Break</h4><div class="intensity-grid" data-section="fragrance" data-stage="break"></div></div>
+            </div>
+            <div class="cva-selection-summary" id="fragrance-summary"></div>
+            <textarea class="cva-notes" placeholder="Notes..."></textarea>
+            <div class="cva-toggle-row">
+                <button class="cva-toggle-btn btn-cata" data-toggle-panel="fragrance" data-panel-type="cata">CVA CATA</button>
+                <button class="cva-toggle-btn btn-sca"  data-toggle-panel="fragrance" data-panel-type="sca">SCA Wheel</button>
+            </div>
+            <div id="fragrance-cata" class="cva-panel cata-panel">
+                <div class="main-tastes">
+                    <strong>Main Tastes:</strong>
+                    <label class="check-label"><input type="checkbox" name="fragrance-mt" value="Salty"> Salty</label>
+                    <label class="check-label"><input type="checkbox" name="fragrance-mt" value="Bitter"> Bitter</label>
+                    <label class="check-label"><input type="checkbox" name="fragrance-mt" value="Sour"> Sour</label>
+                    <label class="check-label"><input type="checkbox" name="fragrance-mt" value="Umami"> Umami</label>
+                    <label class="check-label"><input type="checkbox" name="fragrance-mt" value="Sweet"> Sweet</label>
+                </div>
+                <div id="fragrance-cata-grid"></div>
+            </div>
+            <div id="fragrance-sca" class="cva-panel sca-panel"><div id="fragrance-sca-content"></div></div>
+        </div>
+        <!-- Flavor -->
+        <div class="cva-section">
+            <h3><span>Flavor</span>
+                <div class="overall-intensity"><span>整體強度印象:</span>
+                    <select id="flavor-overall">
+                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                    </select>
+                </div>
+            </h3>
+            <div class="stage-grid">
+                <div class="stage-item"><h4>Hot</h4><div class="intensity-grid" data-section="flavor" data-stage="hot"></div></div>
+                <div class="stage-item"><h4>Warm</h4><div class="intensity-grid" data-section="flavor" data-stage="warm"></div></div>
+                <div class="stage-item"><h4>Cold</h4><div class="intensity-grid" data-section="flavor" data-stage="cold"></div></div>
+            </div>
+            <div class="cva-selection-summary" id="flavor-summary"></div>
+            <textarea class="cva-notes" placeholder="Notes..."></textarea>
+            <div class="cva-toggle-row">
+                <button class="cva-toggle-btn btn-cata" data-toggle-panel="flavor" data-panel-type="cata">CVA CATA</button>
+                <button class="cva-toggle-btn btn-sca"  data-toggle-panel="flavor" data-panel-type="sca">SCA Wheel</button>
+            </div>
+            <div id="flavor-cata" class="cva-panel cata-panel">
+                <div class="main-tastes">
+                    <strong>Main Tastes:</strong>
+                    <label class="check-label"><input type="checkbox" name="flavor-mt" value="Salty"> Salty</label>
+                    <label class="check-label"><input type="checkbox" name="flavor-mt" value="Bitter"> Bitter</label>
+                    <label class="check-label"><input type="checkbox" name="flavor-mt" value="Sour"> Sour</label>
+                    <label class="check-label"><input type="checkbox" name="flavor-mt" value="Umami"> Umami</label>
+                    <label class="check-label"><input type="checkbox" name="flavor-mt" value="Sweet"> Sweet</label>
+                </div>
+                <div id="flavor-cata-grid"></div>
+            </div>
+            <div id="flavor-sca" class="cva-panel sca-panel"><div id="flavor-sca-content"></div></div>
+        </div>
+        <!-- Aftertaste -->
+        <div class="cva-section">
+            <h3><span>Aftertaste</span>
+                <div class="overall-intensity"><span>整體強度印象:</span>
+                    <select id="aftertaste-overall">
+                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                    </select>
+                </div>
+            </h3>
+            <div class="stage-grid">
+                <div class="stage-item"><h4>Hot</h4><div class="intensity-grid" data-section="aftertaste" data-stage="hot"></div></div>
+                <div class="stage-item"><h4>Warm</h4><div class="intensity-grid" data-section="aftertaste" data-stage="warm"></div></div>
+                <div class="stage-item"><h4>Cold</h4><div class="intensity-grid" data-section="aftertaste" data-stage="cold"></div></div>
+            </div>
+            <div class="cva-selection-summary" id="aftertaste-summary"></div>
+            <textarea class="cva-notes" placeholder="Notes..."></textarea>
+            <div class="cva-toggle-row">
+                <button class="cva-toggle-btn btn-cata" data-toggle-panel="aftertaste" data-panel-type="cata">CVA CATA</button>
+                <button class="cva-toggle-btn btn-sca"  data-toggle-panel="aftertaste" data-panel-type="sca">SCA Wheel</button>
+            </div>
+            <div id="aftertaste-cata" class="cva-panel cata-panel">
+                <div class="main-tastes">
+                    <strong>Main Tastes:</strong>
+                    <label class="check-label"><input type="checkbox" name="aftertaste-mt" value="Salty"> Salty</label>
+                    <label class="check-label"><input type="checkbox" name="aftertaste-mt" value="Bitter"> Bitter</label>
+                    <label class="check-label"><input type="checkbox" name="aftertaste-mt" value="Sour"> Sour</label>
+                    <label class="check-label"><input type="checkbox" name="aftertaste-mt" value="Umami"> Umami</label>
+                    <label class="check-label"><input type="checkbox" name="aftertaste-mt" value="Sweet"> Sweet</label>
+                </div>
+                <div id="aftertaste-cata-grid"></div>
+            </div>
+            <div id="aftertaste-sca" class="cva-panel sca-panel"><div id="aftertaste-sca-content"></div></div>
+        </div>
+        <!-- Acidity -->
+        <div class="cva-section">
+            <h3><span>Acidity</span>
+                <div class="overall-intensity"><span>整體強度印象:</span>
+                    <select id="acidity-overall">
+                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                    </select>
+                </div>
+            </h3>
+            <div class="stage-grid">
+                <div class="stage-item"><h4>Hot</h4><div class="intensity-grid" data-section="acidity" data-stage="hot"></div></div>
+                <div class="stage-item"><h4>Warm</h4><div class="intensity-grid" data-section="acidity" data-stage="warm"></div></div>
+                <div class="stage-item"><h4>Cold</h4><div class="intensity-grid" data-section="acidity" data-stage="cold"></div></div>
+            </div>
+            <textarea class="cva-notes" placeholder="Notes..."></textarea>
+        </div>
+        <!-- Sweetness -->
+        <div class="cva-section">
+            <h3><span>Sweetness</span>
+                <div class="overall-intensity"><span>整體強度印象:</span>
+                    <select id="sweetness-overall">
+                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                    </select>
+                </div>
+            </h3>
+            <div class="stage-grid">
+                <div class="stage-item"><h4>Hot</h4><div class="intensity-grid" data-section="sweetness" data-stage="hot"></div></div>
+                <div class="stage-item"><h4>Warm</h4><div class="intensity-grid" data-section="sweetness" data-stage="warm"></div></div>
+                <div class="stage-item"><h4>Cold</h4><div class="intensity-grid" data-section="sweetness" data-stage="cold"></div></div>
+            </div>
+            <textarea class="cva-notes" placeholder="Notes..."></textarea>
+        </div>
+        <!-- Mouthfeel -->
+        <div class="cva-section">
+            <h3><span>Mouthfeel</span>
+                <div class="overall-intensity"><span>整體強度印象:</span>
+                    <select id="mouthfeel-overall">
+                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                    </select>
+                </div>
+            </h3>
+            <div class="stage-grid">
+                <div class="stage-item"><h4>Hot</h4><div class="intensity-grid" data-section="mouthfeel" data-stage="hot"></div></div>
+                <div class="stage-item"><h4>Warm</h4><div class="intensity-grid" data-section="mouthfeel" data-stage="warm"></div></div>
+                <div class="stage-item"><h4>Cold</h4><div class="intensity-grid" data-section="mouthfeel" data-stage="cold"></div></div>
+            </div>
+            <div class="cva-selection-summary" id="mouthfeel-summary"></div>
+            <textarea class="cva-notes" placeholder="Notes..."></textarea>
+            <div class="cva-toggle-row">
+                <button class="cva-toggle-btn btn-cata" data-toggle-panel="mouthfeel" data-panel-type="cata">Mouthfeel CATA</button>
+            </div>
+            <div id="mouthfeel-cata" class="cva-panel cata-panel"><div id="mouthfeel-cata-grid"></div></div>
+        </div>
+    </div>
+    <div class="cva-side-panel">
+        <div class="cva-side-title">📊 資料集切換</div>
+        <div id="cva-desc-dataset-list"></div>
+    </div>
+</div>

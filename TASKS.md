@@ -5,7 +5,7 @@
 3. 並針對該功能實作一個測試案例，確保未來的修改不會破壞這個功能
 4. 針對測試問題，重新修理，直到測試通過為止，測試失敗超過三次，則停止修理，並且回報給專案負責人，讓專案負責人來決定下一步的行動
 5. 完成後，進行commit，並且在 commit message 中說明這次的修改內容，並且標註這次修改的類型（feature / fix / refactor）
-6. 更新這個文件，將這次的修改內容加入到已完成的部分，並且將待實作的部分移除
+6. 更新這個文件，將帶實作的資料複製到已完成，將這次的修改內容加入到已完成的部分
 
 ## 待實作
 
@@ -21,7 +21,21 @@
 
 -->
 
+
 ## 已完成
+
+### [MVC架構]
+**類型**: refactor
+**完成日期**: 2026-05-09
+**變更檔案**: `main.html`, `tabs/tab-brewing.html`, `tabs/tab-descriptive.html`, `tabs/tab-affective.html`, `js/model/appState.js`, `js/model/datasetModel.js`, `js/model/csvParser.js`, `js/view/chartView.js`, `js/view/cvaView.js`, `js/view/datasetListView.js`, `js/view/formView.js`, `js/view/tabView.js`, `js/controller/appController.js`, `js/controller/datasetController.js`, `js/controller/importController.js`, `js/controller/persistController.js`, `js/controller/cvaController.js`, `tests/runner.html`
+- 全面改寫為 ES Module MVC 架構；舊 `js/state.js`, `charts.js`, `cva.js`, `ui.js`, `dataset.js`, `import.js`, `persist.js`, `main.js` 全部刪除
+- Model 層：`AppState`（activeId / counter / affectiveScores）、`DatasetModel`（datasets / visibility）、`CsvParser`（buildAkirakokiDataset / buildRawDataset）
+- View 層：`ChartView`（圖表初始化、滑鼠連動、tooltip）、`CvaView`（強度按鈕、CATA/SCA、收集/還原狀態）、`DatasetListView`、`FormView`、`TabView`
+- Controller 層：`AppController`（入口，並行 fetch 三個 tab HTML）、`DatasetController`、`ImportController`、`PersistController`、`CvaController`
+- 三個 Tab 內容獨立為 `tabs/tab-brewing.html`、`tabs/tab-descriptive.html`、`tabs/tab-affective.html`，由 `fetch()` + `Promise.all` 動態載入
+- 移除所有 `onclick` 屬性，改用 `addEventListener`；按鈕以 `data-tab`、`data-action`、`data-toggle-panel` 識別
+- `constants.js` / `utils.js` 維持 plain script（不加 export），確保測試環境相容
+- 修復 `runner.html` 缺少 `toBeLessThan` matcher；測試 127/127 全部通過
 
 ### [修改滑鼠互動的邏輯]
 **類型**: refactor
