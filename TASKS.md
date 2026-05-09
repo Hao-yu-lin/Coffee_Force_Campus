@@ -23,6 +23,13 @@
 
 ## 已完成
 
+### [bug 修正] weight ↔ flow/temp 游標連動
+**類型**: fix
+**完成日期**: 2026-05-09
+**變更檔案**: `js/charts.js`
+- 移除 `options.onHover` 回呼（`onHoverSync`）與 `mouseleave` DOM 監聽器
+- 新增 `crosshairSyncPlugin`（`afterEvent` hook）：`afterEvent` 在 Chart.js 更新 `getActiveElements()` 後才執行，確保 `crosshairIndex` 永遠拿到當前幀的正確 index，解決 `onHover` 在來源圖重繪後才觸發造成 flow/temp 垂直線延遲一幀的問題
+
 ### [圖表顯示修正]
 **類型**: fix
 **完成日期**: 2026-05-09
