@@ -1,0 +1,66 @@
+<!-- Tab: 粒徑分布 (Particle Size Distribution) -->
+<!-- No script tags, no onclick attributes — events bound in distributionController.js -->
+
+<div class="params-panel">
+  <div class="params-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+    <div class="param-item">
+      <label for="distMode">分布模式:</label>
+      <select id="distMode">
+        <option value="diameter">粒徑計數 (Diameter)</option>
+        <option value="weight">重量估算 (Weight ∝ d³)</option>
+      </select>
+    </div>
+    <div class="param-item">
+      <label for="distXMin">X 最小值 (µm):</label>
+      <input type="number" id="distXMin" value="200" min="0" step="50">
+    </div>
+    <div class="param-item">
+      <label for="distXMax">X 最大值 (µm):</label>
+      <input type="number" id="distXMax" value="1200" min="0" step="50">
+    </div>
+    <div class="param-item">
+      <label for="distInterval">區間寬度 (µm):</label>
+      <input type="number" id="distInterval" value="100" min="1" step="10">
+    </div>
+  </div>
+</div>
+
+<div class="brewing-layout">
+  <div class="chart-area" style="flex:1">
+    <div style="position:relative;height:500px">
+      <canvas id="distributionChart"></canvas>
+    </div>
+  </div>
+
+  <div class="control-panel" id="distControlPanel">
+    <h3><b>粒徑資料集</b></h3>
+    <div class="control-section">
+      <div class="section-title">資料集管理</div>
+      <div class="dataset-controls">
+        <button class="dataset-btn" data-dist-action="select-all">全選</button>
+        <button class="dataset-btn" data-dist-action="deselect-all">全不選</button>
+      </div>
+      <div id="distDatasetList"></div>
+
+      <button class="import-btn" id="importDistBtn">+ 匯入 TXT / CSV</button>
+      <input
+        type="file"
+        id="distFileInput"
+        accept=".txt,.csv"
+        style="display:none;"
+        multiple
+      >
+      <button
+        class="dataset-btn danger"
+        style="width:100%;margin-top:8px;"
+        data-dist-action="clear-all"
+      >🗑 清除全部資料集</button>
+    </div>
+
+    <div class="control-section" style="margin-top:12px;">
+      <button class="dataset-btn" id="downloadDistBtn" style="width:100%;">
+        📥 下載圖表
+      </button>
+    </div>
+  </div>
+</div>

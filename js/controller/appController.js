@@ -9,6 +9,7 @@ import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets
 import { init as initImportController } from './importController.js';
 import { init as initPersistController } from './persistController.js';
 import { init as initCvaController } from './cvaController.js';
+import { init as initDistributionController } from './distributionController.js';
 
 const appState    = new AppState();
 const datasetModel = new DatasetModel();
@@ -21,9 +22,10 @@ async function loadTab(containerId, url) {
 async function init() {
   // 1. Load tab HTML fragments in parallel
   await Promise.all([
-    loadTab('tab-brewing',     'tabs/tab-brewing.html'),
-    loadTab('tab-descriptive', 'tabs/tab-descriptive.html'),
-    loadTab('tab-affective',   'tabs/tab-affective.html'),
+    loadTab('tab-brewing',      'tabs/tab-brewing.html'),
+    loadTab('tab-descriptive',  'tabs/tab-descriptive.html'),
+    loadTab('tab-affective',    'tabs/tab-affective.html'),
+    loadTab('tab-distribution', 'tabs/tab-distribution.html'),
   ]);
 
   // 2. Bind tab buttons
@@ -79,6 +81,7 @@ async function init() {
   initImportController(appState, datasetModel);
   initPersistController(appState, datasetModel);
   initCvaController(appState);
+  initDistributionController();
 
   // 10. CVA panel toggle buttons
   document.querySelectorAll('[data-toggle-panel]').forEach(btn =>

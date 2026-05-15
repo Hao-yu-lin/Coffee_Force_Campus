@@ -21,8 +21,22 @@
 
 -->
 
-
 ## 已完成
+
+### [粒徑分布圖 Tab]
+**類型**: feature
+**完成日期**: 2026-05-15
+**變更檔案**: `tabs/tab-distribution.html`, `js/model/particleModel.js`, `js/view/distributionView.js`, `js/controller/distributionController.js`, `js/controller/appController.js`, `main.html`, `css/style.css`
+- 新增「📊 粒徑分布」Tab（第四個桌面 / 行動 Tab）
+- 支援匯入多個 `.txt` / `.csv` 檔案（格式：`idx,area,diameter` 逗號分隔），自動解析 `diameter` 欄位
+- 兩種分布模式：**粒徑計數**（每 bin 顆粒數比例）、**重量估算**（weight ∝ d³）
+- 自動過濾離群值（保留 median ± 2σ 範圍內的資料點）
+- Chart.js 混合圖：柱狀圖（左 y 軸 = 百分比）＋折線圖（右 y 軸 = 累積百分比 0–115%）
+- 可調整 X 最小值、最大值、區間寬度，變更即時重繪
+- 多資料集同圖顯示，顏色取自 `DATASET_COLORS`，半透明柱狀 + 實線累積
+- 右側控制面板：全選/全不選切換、逐一顯示切換、清除全部、📥 下載圖表 PNG
+- `css/style.css` 補上 `.param-item select` 樣式以統一外觀
+- 所有事件以 `addEventListener` 綁定，無 `onclick` 屬性；127/127 測試全數通過
 
 ### [MVC架構]
 **類型**: refactor

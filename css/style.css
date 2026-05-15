@@ -208,7 +208,8 @@ h1 {
     font-size: 0.82em;
 }
 
-.param-item input {
+.param-item input,
+.param-item select {
     padding: 8px;
     border: 2px solid #90caf9;
     border-radius: 5px;
@@ -216,6 +217,7 @@ h1 {
     font-weight: 700;
     color: var(--text);
     width: 100%;
+    background: #fff;
 }
 
 /* ── Brewing Tab Layout ─────────────────────────── */
