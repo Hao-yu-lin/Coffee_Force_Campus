@@ -467,3 +467,158 @@ describe('robustYRange', () => {
         expect(r.min).toBe(0);
     });
 });
+
+/* ─── Tests: parseTxtBrewingLog ─────────────────────────────── */
+
+/** Minimal valid TXT fixture (3 data points) */
+const MINIMAL_TXT = JSON.stringify({
+    id: 1700000000000,
+    json: {
+        filterCupModel: 2,
+        cupFactory: 'TestCup_ABC',
+        beanTypeSelected: 'single',
+        singleBean: { name: 'Ethiopia', weight: 18.5, bakeDate: '', bakeDegree: 0 },
+        mixedBean: { bean1: { weight: 0 }, bean2: { weight: 0 },
+                     bean3: { weight: 0 }, bean4: { weight: 0 } },
+        tds: '1.35',
+        extractionRate: '18.5',
+        waterPowderRatio: '1 : 15',
+        stars: 4,
+        fwjl: { fw: 4, sw: 5, tw: 5, chd: 4, yy: 5, ph: 4 },
+        beanMoDouJi: 'EG1',
+        beanKeDu: '3.0',
+        extraNote: 'test note',
+        brewingLog: {
+            adc1:        [0, 1.2, 3.5],
+            adc2:        [2.0, 5.0, 9.0],
+            total:       [2.0, 5.0, 9.0],
+            size:        [2.0, 3.0, 4.0],
+            bsize:       [0,   1.2, 2.3],
+            temperature: [93, 92.5, 92.0],
+            thermometer: [null, null, null],
+            percent:     [0, 0.5, 1.0],
+            coffeePowerWeight: [18.5, 18.5, 18.5],
+            ratio:       [0, 1, 2],
+            scale:       ['1:0', '1:0.3', '1:0.5'],
+            beanRatioArray:      [0, 0.1, 0.2],
+            totalBeanRatioArray: ['1:0', '1:0.1', '1:0.2'],
+            period: 2
+        }
+    }
+});
+
+/** TXT with mixedBean only (no singleBean weight) */
+const MIXED_BEAN_TXT = JSON.stringify({
+    id: 1700000001000,
+    json: {
+        cupFactory: 'MixCup',
+        beanTypeSelected: 'mixed',
+        singleBean: { weight: 0 },
+        mixedBean: {
+            bean1: { weight: '14' }, bean2: { weight: '6' },
+            bean3: { weight: 0 },   bean4: { weight: 0 }
+        },
+        brewingLog: {
+            adc1: [0, 1], total: [1, 2], size: [1, 1],
+            bsize: [0, 1], temperature: [90, 89], period: 1
+        }
+    }
+});
+
+describe('parseTxtBrewingLog', () => {
+    test('returns null for invalid JSON', () => {
+        expect(parseTxtBrewingLog('not json')).toBeNull();
+    });
+
+    test('returns null when brewingLog is missing', () => {
+        expect(parseTxtBrewingLog(JSON.stringify({ id: 1, json: {} }))).toBeNull();
+    });
+
+    test('returns null when brewingLog arrays are empty', () => {
+        const txt = JSON.stringify({ id: 1, json: { brewingLog: { adc1: [], total: [] } } });
+        expect(parseTxtBrewingLog(txt)).toBeNull();
+    });
+
+    test('parses timeLabels as 1-indexed seconds', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.timeLabels).toEqual([1, 2, 3]);
+    });
+
+    test('maps log.total to pWC (pouring water cumulative)', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.pWC).toEqual([2.0, 5.0, 9.0]);
+    });
+
+    test('maps log.size to pWF (pour water flow rate)', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.pWF).toEqual([2.0, 3.0, 4.0]);
+    });
+
+    test('maps log.adc1 to bC (brewing cumulative)', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.bC).toEqual([0, 1.2, 3.5]);
+    });
+
+    test('maps log.bsize to bF (brewing flow rate)', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.bF).toEqual([0, 1.2, 2.3]);
+    });
+
+    test('maps log.temperature to temp', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.temp).toEqual([93, 92.5, 92.0]);
+    });
+
+    test('reads singleBean weight as beanWeight string', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.beanWeight).toBe('18.5');
+    });
+
+    test('sums mixedBean weights when singleBean weight is 0', () => {
+        const result = parseTxtBrewingLog(MIXED_BEAN_TXT);
+        expect(result.beanWeight).toBe('20');
+    });
+
+    test('reads cupFactory as name', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.name).toBe('TestCup_ABC');
+    });
+
+    test('extra.tds is present', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.extra.tds).toBe('1.35');
+    });
+
+    test('extra.extractionRate is present', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.extra.extractionRate).toBe('18.5');
+    });
+
+    test('extra.stars is present', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.extra.stars).toBe(4);
+    });
+
+    test('extra.fwjl is present', () => {
+        const result = parseTxtBrewingLog(MINIMAL_TXT);
+        expect(result.extra.fwjl).toEqual({ fw: 4, sw: 5, tw: 5, chd: 4, yy: 5, ph: 4 });
+    });
+
+    test('null values in arrays are converted to 0', () => {
+        const txt = JSON.stringify({
+            id: 1,
+            json: {
+                cupFactory: 'X',
+                singleBean: { weight: 10 },
+                brewingLog: {
+                    adc1: [null, 1], total: [null, 2],
+                    size: [null, 1], bsize: [null, 0],
+                    temperature: [null, 90], period: 1
+                }
+            }
+        });
+        const result = parseTxtBrewingLog(txt);
+        expect(result.pWC[0]).toBe(0);
+        expect(result.temp[0]).toBe(0);
+    });
+});

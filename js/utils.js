@@ -139,6 +139,88 @@ function getDatasetColor(index) {
  * @param {number[]} values - all data values across visible datasets
  * @returns {{ min: number, max: number } | null} null when < 4 values
  */
+/**
+ * Parse a brewing-log TXT file (single-line JSON exported by the app).
+ * Returns the same shape as parseRawDataRows so buildRawDataset can consume it.
+ *
+ * Mapping  TXT brewingLog → CSV row label
+ *   log.total       → Pouring water cumulative(g)   (pWC)
+ *   log.size        → Pour water flow rate(g/s)      (pWF)
+ *   log.adc1        → Brewing cumulative(g)          (bC)
+ *   log.bsize       → Brewing flow rate(g/s)         (bF)
+ *   log.temperature → Temperature(℃)                (temp)
+ *
+ * Extra fields present in TXT but absent from CSV are stored under `extra`:
+ *   thermometer, percent, coffeePowerWeight, ratio, scale,
+ *   beanRatioArray, totalBeanRatioArray,
+ *   tds, extractionRate, waterPowderRatio, stars, fwjl,
+ *   beanMoDouJi, beanKeDu, extraNote
+ *
+ * @param {string} jsonText - raw text content of the .txt file
+ * @returns {object|null} parsed object or null on failure
+ */
+function parseTxtBrewingLog(jsonText) {
+    try {
+        const data = JSON.parse(jsonText);
+        const meta = data.json;
+        const log  = meta && meta.brewingLog;
+        if (!log) return null;
+
+        const len = (log.adc1 || log.total || []).length;
+        if (!len) return null;
+
+        // Time labels: 1-indexed seconds (same as CSV column headers)
+        const timeLabels = Array.from({ length: len }, (_, i) => i + 1);
+
+        // Bean weight — prefer singleBean, fall back to sum of mixedBean slots
+        let beanWeight = '';
+        if (meta.singleBean && meta.singleBean.weight) {
+            beanWeight = String(meta.singleBean.weight);
+        } else if (meta.mixedBean) {
+            const slots = [meta.mixedBean.bean1, meta.mixedBean.bean2,
+                           meta.mixedBean.bean3, meta.mixedBean.bean4];
+            const total = slots.reduce((s, b) => s + (parseFloat(b && b.weight) || 0), 0);
+            if (total > 0) beanWeight = String(total);
+        }
+
+        const toNum = arr => (arr || []).map(v => (v == null ? 0 : Number(v)));
+
+        return {
+            date:       data.id ? new Date(data.id).toLocaleDateString() : '',
+            name:       meta.cupFactory || '',
+            brewTime:   '',            // not stored in TXT
+            beanWeight,
+            timeLabels,
+            pWC:  toNum(log.total  || log.adc2),   // Pouring water cumulative
+            pWF:  toNum(log.size),                  // Pour water flow rate
+            bC:   toNum(log.adc1),                  // Brewing cumulative
+            bF:   toNum(log.bsize),                 // Brewing flow rate
+            temp: toNum(log.temperature),            // Temperature
+
+            // ── Extra fields not present in CSV ──────────────────────────
+            extra: {
+                thermometer:         log.thermometer,        // actual thermometer (vs scale sensor)
+                percent:             log.percent,            // extraction percent per second
+                coffeePowerWeight:   log.coffeePowerWeight,  // coffee powder weight per second
+                ratio:               log.ratio,              // water/coffee ratio (numeric) per second
+                scale:               log.scale,              // water/coffee ratio (string) per second
+                beanRatioArray:      log.beanRatioArray,     // bean ratio per second
+                totalBeanRatioArray: log.totalBeanRatioArray,// cumulative ratio (string) per second
+                tds:                 meta.tds,               // TDS value
+                extractionRate:      meta.extractionRate,    // extraction rate (%)
+                waterPowderRatio:    meta.waterPowderRatio,  // total water/powder ratio
+                stars:               meta.stars,             // user rating
+                fwjl:                meta.fwjl,              // sensory scores {fw,sw,tw,chd,yy,ph}
+                beanMoDouJi:         meta.beanMoDouJi,       // grinder model
+                beanKeDu:            meta.beanKeDu,          // grind size
+                extraNote:           meta.extraNote          // free-text note
+            }
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
 function robustYRange(values) {
     const nums = values.filter(v => typeof v === 'number' && isFinite(v));
     if (nums.length < 4) return null;

@@ -16,7 +16,7 @@ export function buildAkirakokiDataset(id, name, color, pd) {
 
 export function buildRawDataset(id, name, color, parsed) {
   if (!parsed) return null;
-  const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp } = parsed;
+  const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp, extra } = parsed;
   return {
     id, name, color, date, beanWeight,
     totalTime: timeLabels[timeLabels.length - 1] || '',
@@ -27,6 +27,7 @@ export function buildRawDataset(id, name, color, parsed) {
       'Brewing cumulative(g)':        bC,
       'Brewing flow rate(g/s)':       bF,
       'Temperature(℃)':              temp
-    }
+    },
+    ...(extra ? { extra } : {})
   };
 }

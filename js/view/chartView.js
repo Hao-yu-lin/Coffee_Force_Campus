@@ -186,6 +186,66 @@ export function initCharts(datasetModel, getCheckboxValues) {
     }
   };
 
+  // Draws a horizontal dashed line + badge label on the right y-axis for each weight dataset on hover
+  // ratio = weight[idx] / beanWeight  (computed on the fly — no separate ratio dataset)
+  const horizontalRatioLinePlugin = {
+    id: 'horizontalRatioLine',
+    afterDraw: chart => {
+      const activeIdx = isTooltipPinned ? pinnedIndex : crosshairIndex;
+      if (activeIdx === null || !chart.scales.y) return;
+
+      const ctx    = chart.ctx;
+      const yScale = chart.scales.y;
+      const xLeft  = chart.chartArea.left;
+      const xRight = chart.chartArea.right;
+      // Right axis label area starts just past the chart area
+      const yRatioScale = chart.scales.yRatio;
+      const labelAreaLeft = yRatioScale ? yRatioScale.left : xRight + 2;
+
+      chart.data.datasets.forEach((ds, i) => {
+        if (!chart.isDatasetVisible(i)) return;
+        const bw = parseFloat(ds.beanWeight);
+        if (!bw || !isFinite(bw)) return;
+        const weight = ds.data?.[activeIdx];
+        if (weight == null || !isFinite(weight)) return;
+
+        const ratio = weight / bw;
+        const y = yScale.getPixelForValue(weight);
+
+        ctx.save();
+
+        // Horizontal dashed line across the chart area
+        ctx.beginPath();
+        ctx.moveTo(xLeft, y);
+        ctx.lineTo(xRight, y);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = ds.borderColor || 'rgba(100,100,100,0.5)';
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Badge on the right axis
+        const text = ratio.toFixed(1);
+        ctx.font = 'bold 11px sans-serif';
+        const tw  = ctx.measureText(text).width;
+        const ph  = 4;   // horizontal padding
+        const bh  = 16;  // badge height
+        const bx  = labelAreaLeft + 2;
+        const by  = y - bh / 2;
+
+        ctx.fillStyle = ds.borderColor || '#555';
+        ctx.fillRect(bx, by, tw + ph * 2, bh);
+
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + ph, y);
+
+        ctx.restore();
+      });
+    }
+  };
+
   const syncBothCharts = (newIdx, sourceChart, pos) => {
     [weightChart, flowTempChart].forEach(chart => {
       if (!chart) return;
@@ -242,15 +302,23 @@ export function initCharts(datasetModel, getCheckboxValues) {
   weightChart = new Chart(document.getElementById('weightChart').getContext('2d'), {
     type: 'line',
     data: { labels: [], datasets: [] },
-    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
+    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, horizontalRatioLinePlugin],
     options: {
       events: ['click'],
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: commonTooltip },
-      layout: { padding: 0 },
+      layout: { padding: { right: 10 } },
       scales: {
         x: { title: { display: false }, grid: { color: 'rgba(0,0,0,0.08)' } },
-        y: { afterFit(s) { s.width = 60; }, title: { display: true, text: 'Weight (g)' }, grid: { color: 'rgba(0,0,0,0.08)' } }
+        y: { afterFit(s) { s.width = 60; }, title: { display: true, text: 'Weight (g)' }, grid: { color: 'rgba(0,0,0,0.08)' } },
+        yRatio: {
+          type: 'linear',
+          position: 'right',
+          display: false,
+          title: { display: true, text: '水粉比' },
+          grid: { drawOnChartArea: false },
+          afterFit(s) { s.width = 55; }
+        }
       }
     }
   });
@@ -297,22 +365,47 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp }) {
   flowTempChart.options.scales.x.min = 0; flowTempChart.options.scales.x.max = maxTime;
 
   weightChart.data.labels = labels;
-  weightChart.data.datasets = showWeight ? visible.map(d => ({
+
+  const weightDatasets = showWeight ? visible.map(d => ({
     datasetId: d.id, label: `${d.name} - Weight`, data: d.weight,
+    beanWeight: parseFloat(d.beanWeight) || null,
     borderColor: d.color, backgroundColor: `${d.color}20`,
-    borderWidth: 2.5, fill: false, tension: 0.1, pointRadius: 0
+    borderWidth: 2.5, fill: false, tension: 0.1, pointRadius: 0,
+    yAxisID: 'y'
   })) : [];
+
+  weightChart.data.datasets = weightDatasets;
 
   const allW = (showWeight ? visible.flatMap(d => d.weight || []) : [])
     .filter(v => typeof v === 'number' && isFinite(v));
   weightChart.options.scales.y.min = 0;
+  let yMax;
   if (allW.length >= 4) {
     const sortedW = [...allW].sort((a, b) => a - b);
     const p99 = sortedW[Math.min(sortedW.length - 1, Math.floor(sortedW.length * 0.99))];
-    weightChart.options.scales.y.max = p99 * 1.08;
+    yMax = p99 * 1.08;
+    weightChart.options.scales.y.max = yMax;
   } else {
     delete weightChart.options.scales.y.max;
+    yMax = null;
   }
+
+  // Configure yRatio axis — always visible so the right axis area is reserved for hover badges
+  const beanWeights = visible.map(d => parseFloat(d.beanWeight)).filter(bw => bw > 0 && isFinite(bw));
+  weightChart.options.scales.yRatio.display = true;
+  if (beanWeights.length && yMax) {
+    const minBW = Math.min(...beanWeights);
+    weightChart.options.scales.yRatio.min = 0;
+    weightChart.options.scales.yRatio.max = yMax / minBW;
+    weightChart.options.scales.yRatio.ticks = { display: true };
+    weightChart.options.scales.yRatio.title = { display: true, text: '水粉比' };
+  } else {
+    delete weightChart.options.scales.yRatio.min;
+    delete weightChart.options.scales.yRatio.max;
+    weightChart.options.scales.yRatio.ticks = { display: false };
+    weightChart.options.scales.yRatio.title = { display: false };
+  }
+
   weightChart.update();
 
   const ftDatasets = [];

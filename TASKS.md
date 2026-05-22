@@ -21,7 +21,51 @@
 
 -->
 
+
+
+
+
 ## 已完成
+
+### [即時水粉比]
+**類型**: feature
+**完成日期**: 2026-05-22
+**變更檔案**: `js/view/chartView.js`
+
+- weight 圖右側新增 `yRatio` 第二 Y 軸，範圍 `[0, yMax / minBeanWeight]`，僅在有 beanWeight 的資料集時自動顯示
+- 新增 `horizontalRatioLinePlugin`：滑鼠 hover 時在 weight 圖繪製水平虛線，並在右側顯示即時水粉比（`weight / beanWeight`，小數一位，每個資料集各自計算）
+- `updateCharts` 在每個 weight dataset 物件上附加 `beanWeight` 欄位，供 plugin 讀取；不再新增額外的 ratio dataset（消除第二條折線）
+- 水粉比數值 = 當前游標位置的 weight ÷ 對應資料集的 beanWeight（不依賴 `extra.ratio`）
+
+### [支援匯入 TXT 沖煮紀錄]
+**類型**: feature
+**完成日期**: 2026-05-15
+**變更檔案**: `js/utils.js`, `js/model/csvParser.js`, `js/controller/importController.js`, `tests/unit.test.js`
+
+- 新增 `parseTxtBrewingLog(jsonText)` 純函式（`utils.js`）：解析單行 JSON 格式的 `.txt` 沖煮紀錄，回傳與 `parseRawDataRows` 相同的結構供 `buildRawDataset` 使用
+- TXT → CSV 欄位對應：`log.total → pWC`、`log.size → pWF`、`log.adc1 → bC`、`log.bsize → bF`、`log.temperature → temp`
+- `buildRawDataset`（`csvParser.js`）加入 `extra` 欄位傳遞，若 parsed 含 extra 則一併存入 dataset
+- `importController.js` 新增 `parseTxtFile()`，並在 `handleFileSelect` / `handleFolderSelect` 以副檔名判斷路由；TXT 匯入成功後在 console 印出所有 extra 欄位
+- 新增 18 個 `parseTxtBrewingLog` 單元測試，全數通過
+
+**TXT 比 CSV 多出的欄位（已存入 `ds.extra`）：**
+| 欄位 | 說明 |
+|------|------|
+| `thermometer` | 實際溫度計讀值（vs 秤上的溫度感測器） |
+| `percent` | 每秒萃取率 |
+| `coffeePowerWeight` | 每秒咖啡粉重 |
+| `ratio` | 每秒水粉比（數值） |
+| `scale` | 每秒水粉比（字串） |
+| `beanRatioArray` | 每秒豆粉比 |
+| `totalBeanRatioArray` | 累積豆粉比（字串） |
+| `tds` | TDS 值 |
+| `extractionRate` | 萃取率 (%) |
+| `waterPowderRatio` | 總水粉比 |
+| `stars` | 使用者星級評分 |
+| `fwjl` | 感官評分 `{fw, sw, tw, chd, yy, ph}` |
+| `beanMoDouJi` | 磨豆機型號 |
+| `beanKeDu` | 研磨刻度 |
+| `extraNote` | 自由文字備註 |
 
 ### [粒徑分布圖 Tab]
 **類型**: feature
