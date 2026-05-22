@@ -135,6 +135,64 @@ function refreshChart() {
   });
 }
 
+// ── Persist helpers (called by persistController) ────────────────────────────
+
+/**
+ * Snapshot the full distribution state for saving.
+ * Returns a plain-object safe for JSON serialisation.
+ */
+export function getDistributionState() {
+  return {
+    datasets:   particleModel.getAll(),
+    visibility: particleModel.getAllVisibility(),
+    zones:      JSON.parse(JSON.stringify(zones)),   // deep copy
+    settings: {
+      mode:            document.getElementById('distMode')?.value              ?? 'diameter',
+      xMin:            parseFloat(document.getElementById('distXMin')?.value)  || 200,
+      xMax:            parseFloat(document.getElementById('distXMax')?.value)  || 1200,
+      interval:        parseFloat(document.getElementById('distInterval')?.value) || 100,
+      showBars:        document.getElementById('showDistBars')?.checked        ?? true,
+      showCumulative:  document.getElementById('showDistCumulative')?.checked  ?? true,
+    }
+  };
+}
+
+/**
+ * Restore the full distribution state from a saved snapshot.
+ * Called by persistController after loading a history file.
+ */
+export function loadDistributionState(state) {
+  if (!state) return;
+
+  // 1. Restore particle datasets
+  if (state.datasets) {
+    particleModel.replaceAll(state.datasets, state.visibility || {});
+  }
+
+  // 2. Restore zone definitions (mutate in-place so renderZoneList sees the update)
+  if (Array.isArray(state.zones) && state.zones.length) {
+    zones.length = 0;
+    state.zones.forEach(z => zones.push({ ...z }));
+    renderZoneList();
+  }
+
+  // 3. Restore UI settings
+  const s = state.settings;
+  if (s) {
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value   = v; };
+    const setChk = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.checked = v; };
+    setVal('distMode',     s.mode);
+    setVal('distXMin',     s.xMin);
+    setVal('distXMax',     s.xMax);
+    setVal('distInterval', s.interval);
+    setChk('showDistBars',        s.showBars);
+    setChk('showDistCumulative',  s.showCumulative);
+  }
+
+  // 4. Re-render
+  refreshChart();
+}
+
 // ── TXT / CSV parser ──────────────────────────────────────────────────────────
 // Delegates to parseParticleDiameters() defined in utils.js (plain global script)
 

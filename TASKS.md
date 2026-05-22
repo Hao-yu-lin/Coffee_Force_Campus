@@ -27,6 +27,17 @@
 
 ## 已完成
 
+### [粒徑分布儲存與讀取]
+**類型**: feature
+**完成日期**: 2026-05-22
+**變更檔案**: `js/model/particleModel.js`, `js/controller/distributionController.js`, `js/controller/persistController.js`
+
+- `particleModel.js` 新增 `replaceAll(datasets, visibility)` 方法，還原後自動修正計數器以避免 ID 衝突
+- `distributionController.js` 新增 `getDistributionState()` / `loadDistributionState(state)` 兩個 export：
+  - `getDistributionState()`：快照 particle datasets、visibility、zones（深拷貝）、UI 設定（mode/xMin/xMax/interval/showBars/showCumulative）
+  - `loadDistributionState(state)`：還原 particle datasets → 還原 zone 設定 → 更新 UI 控制項 → 重繪圖表
+- `persistController.js` 版本升至 v4，save 時包含 `distributionState`，load 時若有 `distributionState` 欄位則自動還原粒徑分布
+
 ### [多資料集分區著色模式切換]
 **類型**: feature
 **完成日期**: 2026-05-22

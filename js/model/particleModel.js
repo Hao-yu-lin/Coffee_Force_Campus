@@ -58,4 +58,20 @@ export class ParticleModel {
   count() {
     return Object.keys(this.#datasets).length;
   }
+
+  /**
+   * Replace all datasets at once (used by load-history).
+   * Also resets the internal counter so new datasets won't collide with restored IDs.
+   */
+  replaceAll(datasets, visibility) {
+    this.#datasets   = { ...datasets };
+    this.#visibility = {};
+    Object.keys(this.#datasets).forEach(id => {
+      this.#visibility[id] = visibility?.[id] ?? true;
+    });
+    // Set counter past the highest restored ID number
+    this.#counter = Object.keys(datasets)
+      .map(id => parseInt(id.replace('particle_', '')) || 0)
+      .reduce((m, n) => Math.max(m, n), 0);
+  }
 }

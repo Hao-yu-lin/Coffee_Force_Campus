@@ -3,6 +3,7 @@ import { updateCharts } from '../view/chartView.js';
 import { collectDescriptiveState, collectAffectiveState,
          restoreDescriptiveState, restoreAffectiveState } from '../view/cvaView.js';
 import { loadDatasetParams, refreshViews } from './datasetController.js';
+import { getDistributionState, loadDistributionState } from './distributionController.js';
 
 let _appState, _datasetModel;
 
@@ -37,15 +38,16 @@ function saveData() {
 
   const formVals = getFormValues();
   const data = {
-    version: 3,
+    version: 4,
     name:      formVals.coffeeName,
     target:    formVals.brewingTarget,
     timestamp: formVals.recordTime,
-    activeDatasetId: _appState.getActiveId(),
+    activeDatasetId:    _appState.getActiveId(),
     datasets:           _datasetModel.getAll(),
     dataset_visibility: _datasetModel.getAllVisibility(),
-    cva_descriptive: collectDescriptiveState(),
-    cva_affective:   collectAffectiveState(_appState)
+    cva_descriptive:    collectDescriptiveState(),
+    cva_affective:      collectAffectiveState(_appState),
+    distributionState:  getDistributionState(),   // particle datasets + zones + settings
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -67,9 +69,13 @@ function loadHistory() {
     reader.onload = ev => {
       try {
         const data = JSON.parse(ev.target.result);
+
+        // ── Brewing metadata ──────────────────────────────────────────────────
         if (data.name      !== undefined) setFormValues({ coffeeName:    data.name });
         if (data.target    !== undefined) setFormValues({ brewingTarget: data.target });
         if (data.timestamp !== undefined) setFormValues({ recordTime:    data.timestamp });
+
+        // ── Brewing datasets ──────────────────────────────────────────────────
         if (data.datasets) {
           _datasetModel.replaceAll(data.datasets, data.dataset_visibility || {});
           _appState.setCounter(Object.keys(data.datasets).length);
@@ -81,6 +87,12 @@ function loadHistory() {
           if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
           if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective, _appState);
         }
+
+        // ── Particle size distribution ────────────────────────────────────────
+        if (data.distributionState) {
+          loadDistributionState(data.distributionState);
+        }
+
         alert(`✅ 歷史檔案「${file.name}」讀取成功！`);
       } catch (err) { alert('❌ 讀取失敗：' + err.message); }
     };
