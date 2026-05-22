@@ -11,6 +11,104 @@ import {
 
 const particleModel = new ParticleModel();
 
+// ── Zone state ────────────────────────────────────────────────────────────────
+
+// Default palette for new zones (cycles when user keeps adding)
+const ZONE_PALETTE = ['#57bb5e', '#e8a838', '#d95f5f', '#6b9bd2', '#a07cc5', '#e8826a'];
+
+// Each zone: { from: number (0–100), to: number (0–100), color: string }
+// zones must be sorted, zones[0].from === 0, zones[last].to === 100
+let zones = [
+  { from: 0,  to: 25,  color: '#57bb5e' },
+  { from: 25, to: 75,  color: '#e8a838' },
+  { from: 75, to: 100, color: '#d95f5f' },
+];
+
+function renderZoneList() {
+  const container = document.getElementById('zoneList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  zones.forEach((zone, i) => {
+    const isLast = i === zones.length - 1;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;margin:3px 0;font-size:12px;';
+
+    // "from%" label — always read-only
+    const fromSpan = document.createElement('span');
+    fromSpan.textContent = zone.from + '%';
+    fromSpan.style.cssText = 'min-width:28px;text-align:right;color:#888;flex-shrink:0;';
+    row.appendChild(fromSpan);
+
+    const arrow = document.createElement('span');
+    arrow.textContent = '→';
+    arrow.style.cssText = 'color:#aaa;flex-shrink:0;';
+    row.appendChild(arrow);
+
+    // "to" — input for all zones except the last (always 100%)
+    if (isLast) {
+      const toSpan = document.createElement('span');
+      toSpan.textContent = '100%';
+      toSpan.style.cssText = 'min-width:42px;color:#888;flex-shrink:0;';
+      row.appendChild(toSpan);
+    } else {
+      const toInput = document.createElement('input');
+      toInput.type = 'number';
+      toInput.value = zone.to;
+      toInput.min = zone.from + 1;
+      toInput.max = zones[i + 1].to - 1;
+      toInput.style.cssText = 'width:44px;padding:1px 3px;font-size:12px;text-align:center;';
+      toInput.addEventListener('change', () => {
+        let val = Math.round(parseFloat(toInput.value));
+        val = Math.max(zone.from + 1, Math.min(zones[i + 1].to - 1, val));
+        toInput.value = val;
+        zones[i].to       = val;
+        zones[i + 1].from = val;
+        renderZoneList();
+        refreshChart();
+      });
+      row.appendChild(toInput);
+
+      const pctSpan = document.createElement('span');
+      pctSpan.textContent = '%';
+      pctSpan.style.cssText = 'color:#888;flex-shrink:0;';
+      row.appendChild(pctSpan);
+    }
+
+    // Color picker
+    const colorInput = document.createElement('input');
+    colorInput.type  = 'color';
+    colorInput.value = zone.color;
+    colorInput.style.cssText = 'width:26px;height:22px;padding:1px;border:1px solid #ddd;border-radius:3px;cursor:pointer;flex-shrink:0;';
+    colorInput.addEventListener('input', () => {
+      zones[i].color = colorInput.value;
+      refreshChart();
+    });
+    row.appendChild(colorInput);
+
+    // Delete button — hidden when only 1 zone remains
+    if (zones.length > 1) {
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '×';
+      delBtn.title = '刪除此區間';
+      delBtn.style.cssText = 'padding:1px 6px;font-size:12px;border:1px solid #ddd;border-radius:3px;background:#fff;color:#888;cursor:pointer;flex-shrink:0;';
+      delBtn.addEventListener('click', () => {
+        if (i < zones.length - 1) {
+          zones[i + 1].from = zones[i].from;   // next zone absorbs this one's start
+        } else {
+          zones[i - 1].to = 100;                // previous zone extends to end
+        }
+        zones.splice(i, 1);
+        renderZoneList();
+        refreshChart();
+      });
+      row.appendChild(delBtn);
+    }
+
+    container.appendChild(row);
+  });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getBinSettings() {
@@ -20,7 +118,7 @@ function getBinSettings() {
   const interval     = parseFloat(document.getElementById('distInterval')?.value) || 100;
   const showBars     = document.getElementById('showDistBars')?.checked ?? true;
   const showCumulative = document.getElementById('showDistCumulative')?.checked ?? true;
-  return { mode, xMin, xMax, interval, showBars, showCumulative };
+  return { mode, xMin, xMax, interval, showBars, showCumulative, zones };
 }
 
 function refreshChart() {
@@ -127,6 +225,20 @@ export function init() {
   document.getElementById('showDistBars')?.addEventListener('change', refreshChart);
   document.getElementById('showDistCumulative')?.addEventListener('change', refreshChart);
 
-  // 9. Initial render
+  // 9. Zone list + add-zone button
+  renderZoneList();
+  document.getElementById('addZoneBtn')?.addEventListener('click', () => {
+    // Split the last zone at its midpoint to create a new zone
+    const last = zones[zones.length - 1];
+    const mid  = Math.round((last.from + last.to) / 2);
+    if (mid <= last.from || mid >= last.to) return;   // zone too narrow to split
+    const newColor = ZONE_PALETTE[zones.length % ZONE_PALETTE.length];
+    zones.splice(zones.length - 1, 0, { from: last.from, to: mid, color: newColor });
+    zones[zones.length - 1].from = mid;
+    renderZoneList();
+    refreshChart();
+  });
+
+  // 10. Initial render
   refreshChart();
 }

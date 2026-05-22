@@ -104,6 +104,26 @@ function computeBinsWeight(diameters, edges) {
   return { percents, cumPercents };
 }
 
+/**
+ * Return the zone color for a given bin based on its cumulative % midpoint.
+ * Zones are sorted ascending; we iterate until midCum < zone.to.
+ * The last zone is always the catch-all.
+ * @param {number} binIndex
+ * @param {number[]} cumPercents  - cumulative % array (same length as bins)
+ * @param {Array<{from,to,color}>} zones
+ * @returns {string|null}  hex color, or null if zones is empty
+ */
+function getZoneColor(binIndex, cumPercents, zones) {
+  if (!zones || !zones.length) return null;
+  const prev   = binIndex === 0 ? 0 : cumPercents[binIndex - 1];
+  const curr   = cumPercents[binIndex];
+  const midCum = (prev + curr) / 2;
+  for (let j = 0; j < zones.length - 1; j++) {
+    if (midCum < zones[j].to) return zones[j].color;
+  }
+  return zones[zones.length - 1].color;
+}
+
 // ── Exported functions ────────────────────────────────────────────────────────
 
 export function initDistributionChart() {
@@ -153,7 +173,7 @@ export function initDistributionChart() {
 export function updateDistributionChart(
   particleModel,
   { mode = 'diameter', xMin = 200, xMax = 1200, interval = 100,
-    showBars = true, showCumulative = true } = {}
+    showBars = true, showCumulative = true, zones = [] } = {}
 ) {
   if (!distributionChart) return;
 
@@ -173,15 +193,23 @@ export function updateDistributionChart(
     const peak = Math.max(...percents);
     if (peak > maxPercent) maxPercent = peak;
 
-    const barColor = ds.color + '99';
-
     if (showBars) {
+      // Per-bar colors: zone color when zones are defined, else dataset color
+      const bgColors     = percents.map((_, i) => {
+        const zc = getZoneColor(i, cumPercents, zones);
+        return zc ? zc + 'AA' : ds.color + '99';
+      });
+      const borderColors = percents.map((_, i) => {
+        const zc = getZoneColor(i, cumPercents, zones);
+        return zc ?? ds.color;
+      });
+
       chartDatasets.push({
         type: 'bar',
         label: `${ds.name} %`,
         data: percents,
-        backgroundColor: barColor,
-        borderColor: ds.color,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
         borderWidth: 1,
         yAxisID: 'y',
         order: 2

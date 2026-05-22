@@ -691,3 +691,64 @@ describe('parseParticleDiameters', () => {
         expect(parseParticleDiameters(csv)).toBeNull();
     });
 });
+
+/* ─── Tests: getZoneColor (distribution zone coloring) ──────── */
+
+// Inline the pure function so it can be tested without ES module imports
+function _getZoneColor(binIndex, cumPercents, zones) {
+    if (!zones || !zones.length) return null;
+    const prev   = binIndex === 0 ? 0 : cumPercents[binIndex - 1];
+    const curr   = cumPercents[binIndex];
+    const midCum = (prev + curr) / 2;
+    for (let j = 0; j < zones.length - 1; j++) {
+        if (midCum < zones[j].to) return zones[j].color;
+    }
+    return zones[zones.length - 1].color;
+}
+
+describe('getZoneColor', () => {
+    const zones3 = [
+        { from: 0,  to: 25,  color: '#57bb5e' },
+        { from: 25, to: 75,  color: '#e8a838' },
+        { from: 75, to: 100, color: '#d95f5f' },
+    ];
+    // cumPercents where each bin contributes 10%
+    const cum10 = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+    test('returns null for empty zones array', () => {
+        expect(_getZoneColor(0, cum10, [])).toBeNull();
+    });
+
+    test('bin in first zone (midCum < 25) → first zone color', () => {
+        // bin 0: mid = (0+10)/2 = 5 → zone 0
+        expect(_getZoneColor(0, cum10, zones3)).toBe('#57bb5e');
+        // bin 1: mid = (10+20)/2 = 15 → zone 0
+        expect(_getZoneColor(1, cum10, zones3)).toBe('#57bb5e');
+    });
+
+    test('bin in middle zone (25 ≤ midCum < 75) → middle zone color', () => {
+        // bin 3: mid = (30+40)/2 = 35 → zone 1
+        expect(_getZoneColor(3, cum10, zones3)).toBe('#e8a838');
+        // bin 5: mid = (50+60)/2 = 55 → zone 1
+        expect(_getZoneColor(5, cum10, zones3)).toBe('#e8a838');
+    });
+
+    test('bin in last zone (midCum ≥ 75) → last zone color', () => {
+        // bin 8: mid = (80+90)/2 = 85 → zone 2
+        expect(_getZoneColor(8, cum10, zones3)).toBe('#d95f5f');
+        // bin 9 (last): mid = (90+100)/2 = 95 → zone 2
+        expect(_getZoneColor(9, cum10, zones3)).toBe('#d95f5f');
+    });
+
+    test('single zone always returns that zone color', () => {
+        const singleZone = [{ from: 0, to: 100, color: '#aabbcc' }];
+        expect(_getZoneColor(0, cum10, singleZone)).toBe('#aabbcc');
+        expect(_getZoneColor(9, cum10, singleZone)).toBe('#aabbcc');
+    });
+
+    test('boundary bin (midCum exactly at breakpoint) assigned to lower zone', () => {
+        // bin 2: mid = (20+30)/2 = 25 — equals zones3[0].to
+        // midCum=25 is NOT < 25, so falls through to zone 1
+        expect(_getZoneColor(2, cum10, zones3)).toBe('#e8a838');
+    });
+});
