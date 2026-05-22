@@ -99,6 +99,39 @@ const zoneBandPlugin = {
         ctx.restore();
       }
     });
+  },
+
+  // Draws a highlight frame around the selected dataset's bar legend item.
+  afterDraw(chart) {
+    if (_selectedBandIdx === null || !_isMultiMode) return;
+
+    const legend = chart.legend;
+    const items  = legend?.legendItems;
+    const boxes  = legend?.legendHitBoxes;
+    if (!items || !boxes) return;
+
+    const ctx = chart.ctx;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const ds   = chart.data.datasets[item.datasetIndex];
+      // Only frame the bar legend entry of the selected dataset
+      if (!ds || ds._modelIdx !== _selectedBandIdx || ds.type !== 'bar') continue;
+
+      const box = boxes[i];
+      if (!box) continue;
+
+      // In multi-mode, borderColor is a plain string (= ds.color)
+      const color = Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor;
+      const pad   = 3;
+
+      ctx.save();
+      ctx.strokeStyle = (typeof color === 'string' ? color : '#555');
+      ctx.lineWidth   = 2.5;
+      ctx.lineJoin    = 'round';
+      ctx.strokeRect(box.left - pad, box.top - pad, box.width + pad * 2, box.height + pad * 2);
+      ctx.restore();
+      break;   // only one bar entry per model index
+    }
   }
 };
 
