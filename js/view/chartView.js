@@ -374,36 +374,44 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, sho
     yAxisID: 'y'
   })) : [];
 
-  // adc1 + adc2 area datasets — built in pairs per dataset so fill: -1 stacks correctly
-  // When both are visible: adc1 fills from origin; adc2 fills from adc1 (stacked on top)
-  // When only one is visible: each fills from origin independently
+  // ── adc1 / adc2 stacked area ──────────────────────────────────────────────
+  // Single dataset: adc1 = blue family, adc2 = orange family (easy to distinguish)
+  // Multiple datasets: both use d.color so datasets are identifiable by hue
+  const ADC1_SOLO = '#1565C0';   // deep blue
+  const ADC2_SOLO = '#E65100';   // deep orange
+  const isMultiDs = visible.filter(d => d.adc1?.length || d.adc2?.length).length > 1;
+
   const adcDatasets = [];
   visible.forEach(d => {
     const hasAdc1 = showAdc1 && d.adc1?.length;
     const hasAdc2 = showAdc2 && d.adc2?.length;
+
+    const c1 = isMultiDs ? d.color : ADC1_SOLO;
+    const c2 = isMultiDs ? d.color : ADC2_SOLO;
+
     if (hasAdc1) {
       adcDatasets.push({
         datasetId: d.id, label: `${d.name} - adc1 咖啡液`, data: d.adc1,
-        borderColor: d.color,
-        backgroundColor: d.color + '40',
-        borderWidth: 2, fill: 'origin', tension: 0.2, pointRadius: 0,
+        borderColor: c1,
+        backgroundColor: c1 + '40',
+        borderWidth: 2,
+        borderDash: [6, 3],          // adc1 always dashed
+        fill: 'origin', tension: 0.2, pointRadius: 0,
         yAxisID: 'y', order: 2
       });
     }
     if (hasAdc2) {
-      // When stacking on adc1: data = adc1[i] + adc2[i] so the top edge equals total
-      // fill: -1 fills DOWN to the adc1 line → the band height = adc2 value
+      // Stacked: adc2 data = adc1[i] + adc2[i] so top edge = total; fill down to adc1 line
       const stackedData = (hasAdc1 && d.adc1)
         ? d.adc2.map((v, i) => (d.adc1[i] ?? 0) + v)
         : d.adc2;
       adcDatasets.push({
         datasetId: d.id, label: `${d.name} - adc2 注水感測`, data: stackedData,
-        borderColor: d.color + '88',
-        backgroundColor: d.color + '28',
+        borderColor: c2 + '99',
+        backgroundColor: c2 + '33',
         borderWidth: 1.5,
-        fill: hasAdc1 ? -1 : 'origin',
+        fill: hasAdc1 ? '-1' : 'origin',
         tension: 0.2, pointRadius: 0,
-        borderDash: [4, 3],
         yAxisID: 'y', order: 3
       });
     }
