@@ -14,11 +14,13 @@ const particleModel = new ParticleModel();
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getBinSettings() {
-  const mode     = document.getElementById('distMode')?.value     ?? 'diameter';
-  const xMin     = parseFloat(document.getElementById('distXMin')?.value)     || 200;
-  const xMax     = parseFloat(document.getElementById('distXMax')?.value)     || 1200;
-  const interval = parseFloat(document.getElementById('distInterval')?.value) || 100;
-  return { mode, xMin, xMax, interval };
+  const mode         = document.getElementById('distMode')?.value     ?? 'diameter';
+  const xMin         = parseFloat(document.getElementById('distXMin')?.value)     || 200;
+  const xMax         = parseFloat(document.getElementById('distXMax')?.value)     || 1200;
+  const interval     = parseFloat(document.getElementById('distInterval')?.value) || 100;
+  const showBars     = document.getElementById('showDistBars')?.checked ?? true;
+  const showCumulative = document.getElementById('showDistCumulative')?.checked ?? true;
+  return { mode, xMin, xMax, interval, showBars, showCumulative };
 }
 
 function refreshChart() {
@@ -36,27 +38,10 @@ function refreshChart() {
 }
 
 // ── TXT / CSV parser ──────────────────────────────────────────────────────────
+// Delegates to parseParticleDiameters() defined in utils.js (plain global script)
 
 export function parseTxt(text, filename) {
-  // Detect delimiter: tab or comma
-  const firstLine = text.split(/\r?\n/)[0] || '';
-  const sep = firstLine.includes('\t') ? '\t' : ',';
-
-  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-  if (lines.length < 2) return null;
-
-  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase());
-  const colIdx = headers.indexOf('diameter');
-  if (colIdx === -1) return null;
-
-  const diameters = [];
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(sep);
-    const val = parseFloat(parts[colIdx]);
-    if (!isNaN(val)) diameters.push(val);
-  }
-
-  return diameters.length > 0 ? diameters : null;
+  return parseParticleDiameters(text);
 }
 
 // ── File handling ─────────────────────────────────────────────────────────────
@@ -138,6 +123,10 @@ export function init() {
     document.getElementById(id)?.addEventListener('change', refreshChart);
   });
 
-  // 8. Initial render
+  // 8. Display toggles
+  document.getElementById('showDistBars')?.addEventListener('change', refreshChart);
+  document.getElementById('showDistCumulative')?.addEventListener('change', refreshChart);
+
+  // 9. Initial render
   refreshChart();
 }

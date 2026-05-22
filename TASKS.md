@@ -27,6 +27,18 @@
 
 ## 已完成
 
+### [粒徑分布顯示切換]
+**類型**: feature
+**完成日期**: 2026-05-22
+**變更檔案**: `tabs/tab-distribution.html`, `js/view/distributionView.js`, `js/controller/distributionController.js`, `js/utils.js`, `tests/unit.test.js`
+
+- 粒徑分布右側控制面板新增「數據顯示」區塊，包含兩個 checkbox：「顯示每單位分布」與「顯示累積分布」，預設皆勾選
+- 取消「顯示每單位分布」→ 隱藏所有長條圖（bar datasets）；取消「顯示累積分布」→ 隱藏所有折線圖（line datasets）；可單獨或同時切換
+- `updateDistributionChart` 新增 `showBars` / `showCumulative` 參數，控制是否將對應類型 dataset 加入圖表
+- `getBinSettings()` 讀取兩個新 checkbox 的狀態，傳入 `updateDistributionChart`
+- 將 `parseTxt` 的純函式邏輯移至 `utils.js` 命名為 `parseParticleDiameters`（全域可測試），`distributionController.js` 改為直接呼叫全域函式
+- 新增 9 個 `parseParticleDiameters` 單元測試（全數通過）
+
 ### [即時水粉比]
 **類型**: feature
 **完成日期**: 2026-05-22

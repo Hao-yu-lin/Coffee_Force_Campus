@@ -622,3 +622,72 @@ describe('parseTxtBrewingLog', () => {
         expect(result.temp[0]).toBe(0);
     });
 });
+
+/* ─── Tests: parseParticleDiameters ────────────────────────── */
+
+describe('parseParticleDiameters', () => {
+    test('returns null for empty string', () => {
+        expect(parseParticleDiameters('')).toBeNull();
+    });
+
+    test('returns null when header row only (no data rows)', () => {
+        expect(parseParticleDiameters('idx,area,diameter')).toBeNull();
+    });
+
+    test('returns null when diameter column is absent', () => {
+        const csv = 'idx,area,radius\n1,100,50\n2,200,80';
+        expect(parseParticleDiameters(csv)).toBeNull();
+    });
+
+    test('parses comma-separated file with diameter column', () => {
+        const csv = 'idx,area,diameter\n1,100,250.5\n2,200,400.0\n3,150,600.3';
+        const result = parseParticleDiameters(csv);
+        expect(result).toHaveLength(3);
+        expect(result[0]).toBe(250.5);
+        expect(result[1]).toBe(400.0);
+        expect(result[2]).toBe(600.3);
+    });
+
+    test('parses tab-separated file', () => {
+        const tsv = 'idx\tarea\tdiameter\n1\t100\t350\n2\t200\t700';
+        const result = parseParticleDiameters(tsv);
+        expect(result).toHaveLength(2);
+        expect(result[0]).toBe(350);
+        expect(result[1]).toBe(700);
+    });
+
+    test('skips non-numeric rows gracefully', () => {
+        const csv = 'idx,area,diameter\n1,100,300\nbad,row,NaN\n3,200,500';
+        const result = parseParticleDiameters(csv);
+        expect(result).toHaveLength(2);
+        expect(result[0]).toBe(300);
+        expect(result[1]).toBe(500);
+    });
+
+    test('header matching is case-insensitive', () => {
+        const csv = 'IDX,AREA,DIAMETER\n1,100,250';
+        const result = parseParticleDiameters(csv);
+        expect(result).toHaveLength(1);
+        expect(result[0]).toBe(250);
+    });
+
+    test('handles Windows CRLF line endings', () => {
+        const csv = 'idx,area,diameter\r\n1,100,400\r\n2,200,600\r\n';
+        const result = parseParticleDiameters(csv);
+        expect(result).toHaveLength(2);
+        expect(result[0]).toBe(400);
+        expect(result[1]).toBe(600);
+    });
+
+    test('diameter column need not be last', () => {
+        const csv = 'diameter,idx,area\n250,1,100\n500,2,200';
+        const result = parseParticleDiameters(csv);
+        expect(result).toHaveLength(2);
+        expect(result[0]).toBe(250);
+    });
+
+    test('returns null when all data rows are non-numeric in diameter column', () => {
+        const csv = 'idx,area,diameter\n1,100,bad\n2,200,also_bad';
+        expect(parseParticleDiameters(csv)).toBeNull();
+    });
+});

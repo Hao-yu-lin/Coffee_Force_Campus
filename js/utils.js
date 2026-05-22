@@ -221,6 +221,34 @@ function parseTxtBrewingLog(jsonText) {
     }
 }
 
+/**
+ * Parse a particle-size TXT or CSV file (format: idx,area,diameter or tab-separated).
+ * Returns an array of diameter numbers, or null if the 'diameter' column is absent.
+ * @param {string} text - Raw file text
+ * @returns {number[] | null}
+ */
+function parseParticleDiameters(text) {
+    if (!text) return null;
+    const firstLine = text.split(/\r?\n/)[0] || '';
+    const sep = firstLine.includes('\t') ? '\t' : ',';
+
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+    if (lines.length < 2) return null;
+
+    const headers = lines[0].split(sep).map(h => h.trim().toLowerCase());
+    const colIdx = headers.indexOf('diameter');
+    if (colIdx === -1) return null;
+
+    const diameters = [];
+    for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(sep);
+        const val = parseFloat(parts[colIdx]);
+        if (!isNaN(val)) diameters.push(val);
+    }
+
+    return diameters.length > 0 ? diameters : null;
+}
+
 function robustYRange(values) {
     const nums = values.filter(v => typeof v === 'number' && isFinite(v));
     if (nums.length < 4) return null;

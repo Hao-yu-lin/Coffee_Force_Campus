@@ -152,7 +152,8 @@ export function initDistributionChart() {
 
 export function updateDistributionChart(
   particleModel,
-  { mode = 'diameter', xMin = 200, xMax = 1200, interval = 100 } = {}
+  { mode = 'diameter', xMin = 200, xMax = 1200, interval = 100,
+    showBars = true, showCumulative = true } = {}
 ) {
   if (!distributionChart) return;
 
@@ -174,29 +175,33 @@ export function updateDistributionChart(
 
     const barColor = ds.color + '99';
 
-    chartDatasets.push({
-      type: 'bar',
-      label: `${ds.name} %`,
-      data: percents,
-      backgroundColor: barColor,
-      borderColor: ds.color,
-      borderWidth: 1,
-      yAxisID: 'y',
-      order: 2
-    });
+    if (showBars) {
+      chartDatasets.push({
+        type: 'bar',
+        label: `${ds.name} %`,
+        data: percents,
+        backgroundColor: barColor,
+        borderColor: ds.color,
+        borderWidth: 1,
+        yAxisID: 'y',
+        order: 2
+      });
+    }
 
-    chartDatasets.push({
-      type: 'line',
-      label: `${ds.name} cum%`,
-      data: cumPercents,
-      borderColor: ds.color,
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      pointRadius: 3,
-      tension: 0.1,
-      yAxisID: 'y1',
-      order: 1
-    });
+    if (showCumulative) {
+      chartDatasets.push({
+        type: 'line',
+        label: `${ds.name} cum%`,
+        data: cumPercents,
+        borderColor: ds.color,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.1,
+        yAxisID: 'y1',
+        order: 1
+      });
+    }
   }
 
   distributionChart.data.labels = labels;
