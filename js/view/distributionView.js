@@ -3,49 +3,102 @@
 
 let distributionChart = null;
 
-// ── Zone band state (shared between plugin and updateDistributionChart) ────────
-// Each entry: { color: string, fromIdx: number, toIdx: number }
-let _zoneBands = [];
+// ── Zone band state ────────────────────────────────────────────────────────────
+// Each entry: { color, fromIdx, toIdx, zoneFrom, zoneTo }
+let _zoneBands       = [];
+let _bandCumPercents = [];   // cumPercents per visible dataset (in order)
+let _bandZones       = [];   // current zones array
+let _selectedBandIdx = null; // visible-dataset index selected by click (null = average)
+let _isMultiMode     = false; // true when 2+ datasets are visible
 
-/**
- * Plugin: draws semi-transparent zone background bands BEFORE bars are painted.
- * Active only in multi-dataset mode (when _zoneBands is populated).
- * Also draws a subtle dashed vertical line at each zone boundary.
- */
+// ── Zone band helpers ──────────────────────────────────────────────────────────
+
+/** Return the zone object {from, to, color} that bin i belongs to. */
+function _zoneForBin(binIdx, cumPercents, zones) {
+  if (!zones.length) return null;
+  const prev   = binIdx === 0 ? 0 : cumPercents[binIdx - 1];
+  const midCum = (prev + cumPercents[binIdx]) / 2;
+  for (let j = 0; j < zones.length - 1; j++) {
+    if (midCum < zones[j].to) return zones[j];
+  }
+  return zones[zones.length - 1];
+}
+
+/** Rebuild _zoneBands from the currently selected (or averaged) cumPercents. */
+function _rebuildBands() {
+  if (!_bandZones.length || !_bandCumPercents.length) { _zoneBands = []; return; }
+
+  // Reference cumPercents: selected dataset OR average of all
+  let refCum;
+  if (_selectedBandIdx !== null && _bandCumPercents[_selectedBandIdx]) {
+    refCum = _bandCumPercents[_selectedBandIdx];
+  } else {
+    const n = _bandCumPercents[0].length;
+    refCum = Array.from({ length: n }, (_, i) =>
+      _bandCumPercents.reduce((s, c) => s + (c[i] ?? 0), 0) / _bandCumPercents.length
+    );
+  }
+
+  // Group consecutive same-zone bins into bands
+  _zoneBands = [];
+  let curZone  = _zoneForBin(0, refCum, _bandZones);
+  let bandStart = 0;
+  for (let i = 1; i < refCum.length; i++) {
+    const z = _zoneForBin(i, refCum, _bandZones);
+    if (z !== curZone) {
+      _zoneBands.push({ color: curZone.color, fromIdx: bandStart, toIdx: i - 1,
+                        zoneFrom: curZone.from, zoneTo: curZone.to });
+      curZone   = z;
+      bandStart = i;
+    }
+  }
+  _zoneBands.push({ color: curZone.color, fromIdx: bandStart, toIdx: refCum.length - 1,
+                    zoneFrom: curZone.from, zoneTo: curZone.to });
+}
+
+// ── Zone band plugin ───────────────────────────────────────────────────────────
+
 const zoneBandPlugin = {
   id: 'zoneBand',
   beforeDatasetsDraw(chart) {
     if (!_zoneBands.length) return;
     const labels = chart.data.labels;
-    if (!labels || !labels.length) return;
+    if (!labels?.length) return;
 
     const { left, top, bottom, width } = chart.chartArea;
     const binW = width / labels.length;
     const ctx  = chart.ctx;
 
-    // 1. Coloured background fills
-    _zoneBands.forEach(({ color, fromIdx, toIdx }) => {
-      ctx.save();
-      ctx.fillStyle = color + '28';   // ~16 % opacity — subtle background
-      ctx.fillRect(left + fromIdx * binW, top, (toIdx - fromIdx + 1) * binW, bottom - top);
-      ctx.restore();
-    });
+    _zoneBands.forEach(({ color, fromIdx, toIdx, zoneFrom, zoneTo }, i) => {
+      const x0 = left + fromIdx * binW;
+      const x1 = left + (toIdx + 1) * binW;
 
-    // 2. Dashed vertical line at each zone boundary (skip the first band)
-    ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-    ctx.lineWidth   = 1;
-    ctx.setLineDash([4, 4]);
-    _zoneBands.forEach(({ fromIdx }, i) => {
-      if (i === 0) return;
-      const x = left + fromIdx * binW;
-      ctx.beginPath();
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
-      ctx.stroke();
+      // Semi-transparent background fill
+      ctx.save();
+      ctx.fillStyle = color + '28';   // ~16 % opacity
+      ctx.fillRect(x0, top, x1 - x0, bottom - top);
+      ctx.restore();
+
+      // Zone range label centred inside the band (e.g. "25–75%")
+      ctx.save();
+      ctx.font          = 'bold 10px sans-serif';
+      ctx.fillStyle     = color + 'BB';
+      ctx.textAlign     = 'center';
+      ctx.textBaseline  = 'top';
+      ctx.fillText(`${zoneFrom}–${zoneTo}%`, (x0 + x1) / 2, top + 4);
+      ctx.restore();
+
+      // Dashed boundary line (skip the very first band)
+      if (i > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ctx.lineWidth   = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(x0, bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
     });
-    ctx.setLineDash([]);
-    ctx.restore();
   }
 };
 
@@ -177,7 +230,9 @@ export function initDistributionChart() {
     distributionChart.destroy();
     distributionChart = null;
   }
-  _zoneBands = [];   // reset bands when chart is recreated
+  // Reset all band state when chart is recreated
+  _zoneBands = []; _bandCumPercents = []; _bandZones = [];
+  _selectedBandIdx = null; _isMultiMode = false;
 
   const canvas = document.getElementById('distributionChart');
   if (!canvas) return;
@@ -189,6 +244,22 @@ export function initDistributionChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick(event, elements) {
+        if (!_isMultiMode) return;   // single-dataset: bars already zone-coloured, no interaction needed
+        if (!elements.length) {
+          _selectedBandIdx = null;   // click empty area → reset to average
+        } else {
+          // Each chart dataset carries a _modelIdx property set during updateDistributionChart
+          const ds       = distributionChart.data.datasets[elements[0].datasetIndex];
+          const modelIdx = ds?._modelIdx;
+          if (modelIdx !== undefined) {
+            // Toggle: click same dataset again → deselect back to average
+            _selectedBandIdx = (_selectedBandIdx === modelIdx) ? null : modelIdx;
+          }
+        }
+        _rebuildBands();
+        distributionChart.update('none');
+      },
       plugins: {
         legend: { display: true, position: 'top' },
         tooltip: { mode: 'index', intersect: false }
@@ -229,11 +300,12 @@ export function updateDistributionChart(
   const { edges, labels } = makeBins(xMin, xMax, interval);
 
   // ── Mode: single dataset vs. multiple ──────────────────────────────────────
-  // Single  → bars coloured by zone (current behaviour)
+  // Single  → bars coloured by zone (current behaviour, no bands)
   // Multiple → bars coloured by dataset; zone bands drawn in background by plugin
   const isMulti = visible.length >= 2;
+  _isMultiMode  = isMulti;
 
-  // ── Pre-compute cumPercents for all datasets (needed for band calculation) ──
+  // ── Pre-compute cumPercents for all datasets ────────────────────────────────
   const allCumPercents = visible.map(ds => {
     const filtered = filterByStd(ds.diameters);
     return (mode === 'weight'
@@ -242,26 +314,14 @@ export function updateDistributionChart(
     ).cumPercents;
   });
 
-  // ── Build zone bands for multi-dataset mode ─────────────────────────────────
-  if (isMulti && zones.length && allCumPercents.length) {
-    const numBins = allCumPercents[0].length;
-    // Average cumulative % across all visible datasets
-    const avgCum = Array.from({ length: numBins }, (_, i) =>
-      allCumPercents.reduce((s, c) => s + (c[i] ?? 0), 0) / allCumPercents.length
-    );
-    // Group consecutive same-zone bins into bands
-    _zoneBands = [];
-    let bandColor = getZoneColor(0, avgCum, zones);
-    let bandStart = 0;
-    for (let i = 1; i < numBins; i++) {
-      const zc = getZoneColor(i, avgCum, zones);
-      if (zc !== bandColor) {
-        _zoneBands.push({ color: bandColor, fromIdx: bandStart, toIdx: i - 1 });
-        bandColor = zc;
-        bandStart = i;
-      }
-    }
-    _zoneBands.push({ color: bandColor, fromIdx: bandStart, toIdx: numBins - 1 });
+  // ── Cache state for click-handler reuse ────────────────────────────────────
+  _bandCumPercents = allCumPercents;
+  _bandZones       = zones;
+  _selectedBandIdx = null;   // reset selection whenever data/settings change
+
+  // ── Build initial zone bands (multi-dataset mode only) ────────────────────
+  if (isMulti && zones.length) {
+    _rebuildBands();          // uses average since _selectedBandIdx is null
   } else {
     _zoneBands = [];
   }
@@ -282,7 +342,6 @@ export function updateDistributionChart(
 
     if (showBars) {
       let bgColors, borderColors;
-
       if (!isMulti && zones.length) {
         // Single dataset: each bar takes its zone colour
         bgColors     = percents.map((_, i) => (getZoneColor(i, cumPercents, zones) ?? ds.color) + 'AA');
@@ -292,8 +351,8 @@ export function updateDistributionChart(
         bgColors     = ds.color + '99';
         borderColors = ds.color;
       }
-
       chartDatasets.push({
+        _modelIdx: di,          // custom prop: lets onClick identify which dataset was clicked
         type: 'bar',
         label: `${ds.name} %`,
         data: percents,
@@ -307,6 +366,7 @@ export function updateDistributionChart(
 
     if (showCumulative) {
       chartDatasets.push({
+        _modelIdx: di,          // same model index for the paired cumulative line
         type: 'line',
         label: `${ds.name} cum%`,
         data: cumPercents,
