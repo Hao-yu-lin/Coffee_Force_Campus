@@ -24,19 +24,19 @@ function _zoneForBin(binIdx, cumPercents, zones) {
   return zones[zones.length - 1];
 }
 
-/** Rebuild _zoneBands from the currently selected (or averaged) cumPercents. */
+/** Rebuild _zoneBands from the currently selected cumPercents. */
 function _rebuildBands() {
   if (!_bandZones.length || !_bandCumPercents.length) { _zoneBands = []; return; }
 
-  // Reference cumPercents: selected dataset OR average of all
+  // No dataset selected → no background bands
+  if (_selectedBandIdx === null) { _zoneBands = []; return; }
+
+  // Reference cumPercents: selected dataset only
   let refCum;
-  if (_selectedBandIdx !== null && _bandCumPercents[_selectedBandIdx]) {
+  if (_bandCumPercents[_selectedBandIdx]) {
     refCum = _bandCumPercents[_selectedBandIdx];
   } else {
-    const n = _bandCumPercents[0].length;
-    refCum = Array.from({ length: n }, (_, i) =>
-      _bandCumPercents.reduce((s, c) => s + (c[i] ?? 0), 0) / _bandCumPercents.length
-    );
+    _zoneBands = []; return;
   }
 
   // Group consecutive same-zone bins into bands

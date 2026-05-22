@@ -345,7 +345,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
   document.getElementById('flowTempChart').addEventListener('mouseleave', handleChartMouseLeave);
 }
 
-export function updateCharts(datasetModel, { showWeight, showFlow, showTemp }) {
+export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, showAdc2 = true }) {
   if (!weightChart || !flowTempChart) return;
 
   const visible = datasetModel.getVisible();
@@ -374,7 +374,20 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp }) {
     yAxisID: 'y'
   })) : [];
 
-  weightChart.data.datasets = weightDatasets;
+  // adc2 area datasets — second injection sensor raw readings (TXT files only)
+  const adc2Datasets = showAdc2 ? visible
+    .filter(d => d.adc2 && d.adc2.length)
+    .map(d => ({
+      datasetId: d.id, label: `${d.name} - adc2`, data: d.adc2,
+      borderColor: d.color + '88',
+      backgroundColor: d.color + '22',
+      borderWidth: 1, fill: 'origin', tension: 0.3, pointRadius: 0,
+      borderDash: [3, 3],
+      yAxisID: 'y',
+      order: 3     // drawn behind Weight line (order 2) and ratio line (1)
+    })) : [];
+
+  weightChart.data.datasets = [...adc2Datasets, ...weightDatasets];
 
   const allW = (showWeight ? visible.flatMap(d => d.weight || []) : [])
     .filter(v => typeof v === 'number' && isFinite(v));
