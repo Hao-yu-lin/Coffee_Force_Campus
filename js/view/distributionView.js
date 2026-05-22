@@ -3,6 +3,52 @@
 
 let distributionChart = null;
 
+// ── Zone band state (shared between plugin and updateDistributionChart) ────────
+// Each entry: { color: string, fromIdx: number, toIdx: number }
+let _zoneBands = [];
+
+/**
+ * Plugin: draws semi-transparent zone background bands BEFORE bars are painted.
+ * Active only in multi-dataset mode (when _zoneBands is populated).
+ * Also draws a subtle dashed vertical line at each zone boundary.
+ */
+const zoneBandPlugin = {
+  id: 'zoneBand',
+  beforeDatasetsDraw(chart) {
+    if (!_zoneBands.length) return;
+    const labels = chart.data.labels;
+    if (!labels || !labels.length) return;
+
+    const { left, top, bottom, width } = chart.chartArea;
+    const binW = width / labels.length;
+    const ctx  = chart.ctx;
+
+    // 1. Coloured background fills
+    _zoneBands.forEach(({ color, fromIdx, toIdx }) => {
+      ctx.save();
+      ctx.fillStyle = color + '28';   // ~16 % opacity — subtle background
+      ctx.fillRect(left + fromIdx * binW, top, (toIdx - fromIdx + 1) * binW, bottom - top);
+      ctx.restore();
+    });
+
+    // 2. Dashed vertical line at each zone boundary (skip the first band)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4, 4]);
+    _zoneBands.forEach(({ fromIdx }, i) => {
+      if (i === 0) return;
+      const x = left + fromIdx * binW;
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+};
+
 // ── Private helpers ──────────────────────────────────────────────────────────
 
 function filterByStd(diameters, n = 2) {
@@ -131,6 +177,7 @@ export function initDistributionChart() {
     distributionChart.destroy();
     distributionChart = null;
   }
+  _zoneBands = [];   // reset bands when chart is recreated
 
   const canvas = document.getElementById('distributionChart');
   if (!canvas) return;
@@ -138,6 +185,7 @@ export function initDistributionChart() {
   distributionChart = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: { labels: [], datasets: [] },
+    plugins: [zoneBandPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -180,29 +228,70 @@ export function updateDistributionChart(
   const visible = particleModel.getVisible();
   const { edges, labels } = makeBins(xMin, xMax, interval);
 
+  // ── Mode: single dataset vs. multiple ──────────────────────────────────────
+  // Single  → bars coloured by zone (current behaviour)
+  // Multiple → bars coloured by dataset; zone bands drawn in background by plugin
+  const isMulti = visible.length >= 2;
+
+  // ── Pre-compute cumPercents for all datasets (needed for band calculation) ──
+  const allCumPercents = visible.map(ds => {
+    const filtered = filterByStd(ds.diameters);
+    return (mode === 'weight'
+      ? computeBinsWeight(filtered, edges)
+      : computeBinsDiameter(filtered, edges)
+    ).cumPercents;
+  });
+
+  // ── Build zone bands for multi-dataset mode ─────────────────────────────────
+  if (isMulti && zones.length && allCumPercents.length) {
+    const numBins = allCumPercents[0].length;
+    // Average cumulative % across all visible datasets
+    const avgCum = Array.from({ length: numBins }, (_, i) =>
+      allCumPercents.reduce((s, c) => s + (c[i] ?? 0), 0) / allCumPercents.length
+    );
+    // Group consecutive same-zone bins into bands
+    _zoneBands = [];
+    let bandColor = getZoneColor(0, avgCum, zones);
+    let bandStart = 0;
+    for (let i = 1; i < numBins; i++) {
+      const zc = getZoneColor(i, avgCum, zones);
+      if (zc !== bandColor) {
+        _zoneBands.push({ color: bandColor, fromIdx: bandStart, toIdx: i - 1 });
+        bandColor = zc;
+        bandStart = i;
+      }
+    }
+    _zoneBands.push({ color: bandColor, fromIdx: bandStart, toIdx: numBins - 1 });
+  } else {
+    _zoneBands = [];
+  }
+
+  // ── Build chart datasets ────────────────────────────────────────────────────
   const chartDatasets = [];
   let maxPercent = 0;
 
-  for (const ds of visible) {
+  visible.forEach((ds, di) => {
     const filtered = filterByStd(ds.diameters);
-    const { percents, cumPercents } =
-      mode === 'weight'
-        ? computeBinsWeight(filtered, edges)
-        : computeBinsDiameter(filtered, edges);
+    const { percents } = mode === 'weight'
+      ? computeBinsWeight(filtered, edges)
+      : computeBinsDiameter(filtered, edges);
+    const cumPercents = allCumPercents[di];
 
     const peak = Math.max(...percents);
     if (peak > maxPercent) maxPercent = peak;
 
     if (showBars) {
-      // Per-bar colors: zone color when zones are defined, else dataset color
-      const bgColors     = percents.map((_, i) => {
-        const zc = getZoneColor(i, cumPercents, zones);
-        return zc ? zc + 'AA' : ds.color + '99';
-      });
-      const borderColors = percents.map((_, i) => {
-        const zc = getZoneColor(i, cumPercents, zones);
-        return zc ?? ds.color;
-      });
+      let bgColors, borderColors;
+
+      if (!isMulti && zones.length) {
+        // Single dataset: each bar takes its zone colour
+        bgColors     = percents.map((_, i) => (getZoneColor(i, cumPercents, zones) ?? ds.color) + 'AA');
+        borderColors = percents.map((_, i) =>  getZoneColor(i, cumPercents, zones) ?? ds.color);
+      } else {
+        // Multiple datasets: use dataset colour so each series is identifiable
+        bgColors     = ds.color + '99';
+        borderColors = ds.color;
+      }
 
       chartDatasets.push({
         type: 'bar',
@@ -230,9 +319,9 @@ export function updateDistributionChart(
         order: 1
       });
     }
-  }
+  });
 
-  distributionChart.data.labels = labels;
+  distributionChart.data.labels   = labels;
   distributionChart.data.datasets = chartDatasets;
   distributionChart.options.scales.y.max = maxPercent * 1.3 + 2;
   distributionChart.update();

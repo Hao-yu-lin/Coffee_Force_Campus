@@ -752,3 +752,78 @@ describe('getZoneColor', () => {
         expect(_getZoneColor(2, cum10, zones3)).toBe('#e8a838');
     });
 });
+
+/* ─── Tests: buildZoneBands (multi-dataset background band logic) ─ */
+
+// Inline the pure band-building logic for testing
+function _buildZoneBands(avgCum, zones) {
+    if (!zones || !zones.length || !avgCum.length) return [];
+    const bands = [];
+    let bandColor = _getZoneColor(0, avgCum, zones);
+    let bandStart = 0;
+    for (let i = 1; i < avgCum.length; i++) {
+        const zc = _getZoneColor(i, avgCum, zones);
+        if (zc !== bandColor) {
+            bands.push({ color: bandColor, fromIdx: bandStart, toIdx: i - 1 });
+            bandColor = zc;
+            bandStart = i;
+        }
+    }
+    bands.push({ color: bandColor, fromIdx: bandStart, toIdx: avgCum.length - 1 });
+    return bands;
+}
+
+describe('buildZoneBands', () => {
+    const zones3 = [
+        { from: 0,  to: 25,  color: '#57bb5e' },
+        { from: 25, to: 75,  color: '#e8a838' },
+        { from: 75, to: 100, color: '#d95f5f' },
+    ];
+    // 10 bins each contributing 10%
+    const cum10 = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+    test('returns empty array when zones is empty', () => {
+        expect(_buildZoneBands(cum10, [])).toHaveLength(0);
+    });
+
+    test('returns 3 bands for default 3-zone setup', () => {
+        const bands = _buildZoneBands(cum10, zones3);
+        expect(bands).toHaveLength(3);
+    });
+
+    test('first band starts at index 0', () => {
+        const bands = _buildZoneBands(cum10, zones3);
+        expect(bands[0].fromIdx).toBe(0);
+    });
+
+    test('last band ends at last bin index', () => {
+        const bands = _buildZoneBands(cum10, zones3);
+        expect(bands[bands.length - 1].toIdx).toBe(cum10.length - 1);
+    });
+
+    test('bands are contiguous (no gaps or overlaps)', () => {
+        const bands = _buildZoneBands(cum10, zones3);
+        for (let i = 1; i < bands.length; i++) {
+            expect(bands[i].fromIdx).toBe(bands[i - 1].toIdx + 1);
+        }
+    });
+
+    test('band colors match zone colors', () => {
+        const bands = _buildZoneBands(cum10, zones3);
+        // bins 0-1: midCum < 25 → zone 0 (green)
+        // bins 2-6: midCum 25–75 → zone 1 (amber)
+        // bins 7-9: midCum > 75 → zone 2 (red)
+        expect(bands[0].color).toBe('#57bb5e');
+        expect(bands[1].color).toBe('#e8a838');
+        expect(bands[2].color).toBe('#d95f5f');
+    });
+
+    test('single zone produces exactly one band spanning all bins', () => {
+        const oneZone = [{ from: 0, to: 100, color: '#112233' }];
+        const bands = _buildZoneBands(cum10, oneZone);
+        expect(bands).toHaveLength(1);
+        expect(bands[0].fromIdx).toBe(0);
+        expect(bands[0].toIdx).toBe(9);
+        expect(bands[0].color).toBe('#112233');
+    });
+});
