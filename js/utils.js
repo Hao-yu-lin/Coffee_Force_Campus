@@ -196,6 +196,7 @@ function parseTxtBrewingLog(jsonText) {
             bC:   toNum(log.adc1),                  // Brewing cumulative
             bF:   toNum(log.bsize),                 // Brewing flow rate
             temp: toNum(log.temperature),            // Temperature
+            adc1: log.adc1 ? toNum(log.adc1) : null, // Brewing cumulative (coffee liquid)
             adc2: log.adc2 ? toNum(log.adc2) : null, // Second injection sensor raw values
 
             // ── Extra fields not present in CSV ──────────────────────────

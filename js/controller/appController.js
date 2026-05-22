@@ -43,9 +43,10 @@ async function init() {
     showWeight: document.getElementById('showWeight')?.checked ?? true,
     showFlow:   document.getElementById('showFlow')?.checked ?? true,
     showTemp:   document.getElementById('showTemp')?.checked ?? true,
+    showAdc1:   document.getElementById('showAdc1')?.checked  ?? true,
     showAdc2:   document.getElementById('showAdc2')?.checked  ?? true,
   });
-  ['showWeight','showFlow','showTemp','showAdc2'].forEach(id =>
+  ['showWeight','showFlow','showTemp','showAdc1','showAdc2'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', refreshCharts)
   );
 
@@ -62,6 +63,7 @@ async function init() {
     showWeight: document.getElementById('showWeight')?.checked ?? true,
     showFlow:   document.getElementById('showFlow')?.checked ?? true,
     showTemp:   document.getElementById('showTemp')?.checked ?? true,
+    showAdc1:   document.getElementById('showAdc1')?.checked  ?? true,
     showAdc2:   document.getElementById('showAdc2')?.checked  ?? true,
   }));
 

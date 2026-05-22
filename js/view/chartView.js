@@ -345,7 +345,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
   document.getElementById('flowTempChart').addEventListener('mouseleave', handleChartMouseLeave);
 }
 
-export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, showAdc2 = true }) {
+export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, showAdc2 = true, showAdc1 = true }) {
   if (!weightChart || !flowTempChart) return;
 
   const visible = datasetModel.getVisible();
@@ -374,20 +374,32 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, sho
     yAxisID: 'y'
   })) : [];
 
-  // adc2 area datasets — second injection sensor raw readings (TXT files only)
+  // adc1 line — brewing cumulative (coffee liquid in cup), TXT files only
+  const adc1Datasets = showAdc1 ? visible
+    .filter(d => d.adc1 && d.adc1.length)
+    .map(d => ({
+      datasetId: d.id, label: `${d.name} - adc1 咖啡液`, data: d.adc1,
+      borderColor: d.color,
+      backgroundColor: 'transparent',
+      borderWidth: 2, fill: false, tension: 0.2, pointRadius: 0,
+      yAxisID: 'y',
+      order: 1
+    })) : [];
+
+  // adc2 area — second injection sensor (water in dripper), fills down to origin
   const adc2Datasets = showAdc2 ? visible
     .filter(d => d.adc2 && d.adc2.length)
     .map(d => ({
-      datasetId: d.id, label: `${d.name} - adc2`, data: d.adc2,
-      borderColor: d.color + '88',
-      backgroundColor: d.color + '22',
-      borderWidth: 1, fill: 'origin', tension: 0.3, pointRadius: 0,
-      borderDash: [3, 3],
+      datasetId: d.id, label: `${d.name} - adc2 注水感測`, data: d.adc2,
+      borderColor: d.color + '66',
+      backgroundColor: d.color + '28',
+      borderWidth: 1.5, fill: 'origin', tension: 0.2, pointRadius: 0,
+      borderDash: [4, 3],
       yAxisID: 'y',
-      order: 3     // drawn behind Weight line (order 2) and ratio line (1)
+      order: 2     // area behind adc1 line
     })) : [];
 
-  weightChart.data.datasets = [...adc2Datasets, ...weightDatasets];
+  weightChart.data.datasets = [...adc2Datasets, ...adc1Datasets, ...weightDatasets];
 
   const allW = (showWeight ? visible.flatMap(d => d.weight || []) : [])
     .filter(v => typeof v === 'number' && isFinite(v));

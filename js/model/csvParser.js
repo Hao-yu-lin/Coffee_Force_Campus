@@ -16,11 +16,12 @@ export function buildAkirakokiDataset(id, name, color, pd) {
 
 export function buildRawDataset(id, name, color, parsed) {
   if (!parsed) return null;
-  const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp, adc2, extra } = parsed;
+  const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp, adc1, adc2, extra } = parsed;
   return {
     id, name, color, date, beanWeight,
     totalTime: timeLabels[timeLabels.length - 1] || '',
     time: timeLabels, weight: pWC, flow: pWF, temp,
+    ...(adc1 ? { adc1 } : {}),
     ...(adc2 ? { adc2 } : {}),
     metrics: {
       'Pouring water cumulative(g)': pWC,
