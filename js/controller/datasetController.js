@@ -14,9 +14,12 @@ export function init(appState, datasetModel) {
 
 function getDisplayOptions() {
   return {
-    showWeight: document.getElementById('showWeight')?.checked ?? true,
-    showFlow:   document.getElementById('showFlow')?.checked ?? true,
-    showTemp:   document.getElementById('showTemp')?.checked ?? true,
+    showWeight:   document.getElementById('showWeight')?.checked   ?? true,
+    showFlow:     document.getElementById('showFlow')?.checked     ?? true,
+    showBrewFlow: document.getElementById('showBrewFlow')?.checked ?? true,
+    showTemp:     document.getElementById('showTemp')?.checked     ?? true,
+    showAdc1:     document.getElementById('showAdc1')?.checked     ?? true,
+    showAdc2:     document.getElementById('showAdc2')?.checked     ?? true,
   };
 }
 

@@ -1,6 +1,6 @@
 import { AppState } from '../model/appState.js';
 import { DatasetModel } from '../model/datasetModel.js';
-import { initCharts, updateCharts } from '../view/chartView.js';
+import { initCharts, updateCharts, getChartInstances } from '../view/chartView.js';
 import { buildIntensityButtons, buildAffectiveGrid, initOverallSelects,
          initializeCATAPanels, initializeSCAPanels, toggleCVAPanel } from '../view/cvaView.js';
 import { bindTabButtons, toggleMobileDrawer } from '../view/tabView.js';
@@ -38,15 +38,42 @@ async function init() {
   document.querySelector('.mobile-control-toggle')
     ?.addEventListener('click', toggleMobileDrawer);
 
-  // 4. Display option checkboxes
-  const refreshCharts = () => updateCharts(datasetModel, {
-    showWeight: document.getElementById('showWeight')?.checked ?? true,
-    showFlow:   document.getElementById('showFlow')?.checked ?? true,
-    showTemp:   document.getElementById('showTemp')?.checked ?? true,
-    showAdc1:   document.getElementById('showAdc1')?.checked  ?? true,
-    showAdc2:   document.getElementById('showAdc2')?.checked  ?? true,
+  // 4. Display help icon toggle
+  document.getElementById('displayHelpIcon')?.addEventListener('click', () => {
+    document.getElementById('displayHelpPopup')?.classList.toggle('visible');
   });
-  ['showWeight','showFlow','showTemp','showAdc1','showAdc2'].forEach(id =>
+
+  // 4b. Panel collapse buttons
+  const resizeCharts = () => {
+    const { weightChart, flowTempChart } = getChartInstances();
+    setTimeout(() => { weightChart?.resize(); flowTempChart?.resize(); }, 280);
+  };
+  document.getElementById('collapseLeftBtn')?.addEventListener('click', () => {
+    const panel = document.getElementById('leftTooltipPanel');
+    const btn   = document.getElementById('collapseLeftBtn');
+    const collapsed = panel.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '›' : '‹';
+    resizeCharts();
+  });
+  document.getElementById('collapseRightBtn')?.addEventListener('click', () => {
+    const panel = document.getElementById('desktopControlPanel');
+    const btn   = document.getElementById('collapseRightBtn');
+    const collapsed = panel.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '‹' : '›';
+    resizeCharts();
+  });
+
+  // 5. Display option checkboxes
+  const getDisplayOpts = () => ({
+    showWeight:   document.getElementById('showWeight')?.checked   ?? true,
+    showFlow:     document.getElementById('showFlow')?.checked     ?? true,
+    showBrewFlow: document.getElementById('showBrewFlow')?.checked ?? true,
+    showTemp:     document.getElementById('showTemp')?.checked     ?? true,
+    showAdc1:     document.getElementById('showAdc1')?.checked     ?? true,
+    showAdc2:     document.getElementById('showAdc2')?.checked     ?? true,
+  });
+  const refreshCharts = () => updateCharts(datasetModel, getDisplayOpts());
+  ['showWeight','showFlow','showBrewFlow','showTemp','showAdc1','showAdc2'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', refreshCharts)
   );
 
@@ -59,13 +86,7 @@ async function init() {
     ?.addEventListener('click', clearSelectedDatasets);
 
   // 6. Init charts
-  initCharts(datasetModel, () => ({
-    showWeight: document.getElementById('showWeight')?.checked ?? true,
-    showFlow:   document.getElementById('showFlow')?.checked ?? true,
-    showTemp:   document.getElementById('showTemp')?.checked ?? true,
-    showAdc1:   document.getElementById('showAdc1')?.checked  ?? true,
-    showAdc2:   document.getElementById('showAdc2')?.checked  ?? true,
-  }));
+  initCharts(datasetModel, getDisplayOpts);
 
   // 7. Build CVA DOM
   buildIntensityButtons();

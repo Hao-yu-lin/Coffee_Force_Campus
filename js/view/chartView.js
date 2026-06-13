@@ -96,7 +96,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
       title: ctx => `時間: ${ctx[0].label} 秒`,
       label: ctx => {
         const label = ctx.dataset.label || '';
-        return label.replace(' - Weight', '').replace(' - Flow', '').replace(' - Temp', '');
+        return label.replace(' - Weight', '').replace(' - Pour Water Flow', '').replace(' - Brew Flow', '').replace(' - Temp', '').replace(' - adc1 下壺', ' - 下壺').replace(' - adc2 濾杯', ' - 濾杯');
       },
       afterLabel: ctx => {
         const dsId = ctx.dataset.datasetId;
@@ -107,11 +107,19 @@ export function initCharts(datasetModel, getCheckboxValues) {
         const lines = [];
         if (opts.showWeight && ds.weight?.[timeIdx] !== undefined) {
           const w = Number(ds.weight[timeIdx]);
-          if (!isNaN(w)) lines.push(`  - weight: ${w.toFixed(2)}`);
+          if (!isNaN(w)) {
+            lines.push(`  - weight: ${w.toFixed(2)}`);
+            const bw = parseFloat(ds.beanWeight);
+            if (bw && isFinite(bw)) lines.push(`  - 水粉比: ${(w / bw).toFixed(2)}`);
+          }
         }
         if (opts.showFlow && ds.flow?.[timeIdx] !== undefined) {
           const f = Number(ds.flow[timeIdx]);
-          if (!isNaN(f)) lines.push(`  - flow: ${f.toFixed(2)}`);
+          if (!isNaN(f)) lines.push(`  - pour water flow: ${f.toFixed(2)}`);
+        }
+        if (opts.showBrewFlow && ds.bflow?.[timeIdx] !== undefined) {
+          const bf = Number(ds.bflow[timeIdx]);
+          if (!isNaN(bf)) lines.push(`  - brew flow: ${bf.toFixed(2)}`);
         }
         if (opts.showTemp && ds.temp?.[timeIdx] !== undefined) {
           const t = Number(ds.temp[timeIdx]);
@@ -186,8 +194,14 @@ export function initCharts(datasetModel, getCheckboxValues) {
     }
   };
 
-  // Draws a horizontal dashed line + badge label on the right y-axis for each weight dataset on hover
-  // ratio = weight[idx] / beanWeight  (computed on the fly — no separate ratio dataset)
+  // Badge color: use the dataset's own borderColor (strip alpha suffix)
+  const getBadgeColor = (label, ds) => {
+    const c = ds?.borderColor;
+    if (typeof c === 'string' && c.startsWith('#')) return c.slice(0, 7);
+    return '#555';
+  };
+
+  // Draws horizontal dashed lines + badges on both Y-axes for all visible datasets on hover
   const horizontalRatioLinePlugin = {
     id: 'horizontalRatioLine',
     afterDraw: chart => {
@@ -198,49 +212,134 @@ export function initCharts(datasetModel, getCheckboxValues) {
       const yScale = chart.scales.y;
       const xLeft  = chart.chartArea.left;
       const xRight = chart.chartArea.right;
-      // Right axis label area starts just past the chart area
-      const yRatioScale = chart.scales.yRatio;
+      const yRatioScale   = chart.scales.yRatio;
       const labelAreaLeft = yRatioScale ? yRatioScale.left : xRight + 2;
+      const BH = 16, PH = 4, GAP = 2;
+
+      const drawBadge = (text, x, y, bgColor, alignRight = false) => {
+        ctx.font = 'bold 11px sans-serif';
+        const tw = ctx.measureText(text).width;
+        const bx = alignRight ? x - tw - PH * 2 - 2 : x + 2;
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(bx, y - BH / 2, tw + PH * 2, BH);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + PH, y);
+      };
+
+      // First pass: collect values per dataset type for right-side stacking
+      // Order: adc1, adc2 at their y positions; weight separately, adc2 right badge below weight
+      const weightEntries = [];   // { value, y, bw }
+      const adc2Entries   = [];   // { value, y }
 
       chart.data.datasets.forEach((ds, i) => {
         if (!chart.isDatasetVisible(i)) return;
-        const bw = parseFloat(ds.beanWeight);
-        if (!bw || !isFinite(bw)) return;
-        const weight = ds.data?.[activeIdx];
-        if (weight == null || !isFinite(weight)) return;
-
-        const ratio = weight / bw;
-        const y = yScale.getPixelForValue(weight);
+        const value = ds.data?.[activeIdx];
+        if (value == null || !isFinite(value)) return;
+        const isWeight = !ds.label?.includes('adc1') && !ds.label?.includes('adc2');
+        const bw = parseFloat(ds.beanWeight) ||
+          parseFloat(datasetModel.get?.(ds.datasetId)?.beanWeight) || 0;
+        const y = yScale.getPixelForValue(value);
+        const badgeColor = getBadgeColor(ds.label, ds);
+        const lineColor  = ds.borderColor || badgeColor;
 
         ctx.save();
 
-        // Horizontal dashed line across the chart area
+        // Horizontal dashed line (same color as the line itself)
         ctx.beginPath();
         ctx.moveTo(xLeft, y);
         ctx.lineTo(xRight, y);
         ctx.lineWidth = 1;
-        ctx.strokeStyle = ds.borderColor || 'rgba(100,100,100,0.5)';
+        ctx.strokeStyle = lineColor;
         ctx.setLineDash([4, 4]);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Badge on the right axis
-        const text = ratio.toFixed(1);
+        // Left axis badge
+        drawBadge(`${value.toFixed(1)}g`, xLeft, y, badgeColor, true);
+
+        if (isWeight) {
+          weightEntries.push({ value, y, bw, badgeColor });
+        } else if (ds.label?.includes('adc2')) {
+          // Use rawData for badge value when adc2 is stacked on top of adc1
+          const rawValue = ds.rawData ? (ds.rawData[activeIdx] ?? value) : value;
+          adc2Entries.push({ value: rawValue, y, badgeColor, isStacked: !!ds.isStacked });
+        } else {
+          // adc1 — right badge at actual y position
+          if (bw && isFinite(bw)) drawBadge((value / bw).toFixed(1), labelAreaLeft, y, badgeColor, false);
+        }
+
+        ctx.restore();
+      });
+
+      // Check if any adc1 dataset is visible (determines adc2 right-badge placement)
+      const hasVisibleAdc1 = chart.data.datasets.some((ds, i) =>
+        chart.isDatasetVisible(i) && ds.label?.includes('adc1')
+      );
+
+      // Right-axis: weight badges at their y positions
+      weightEntries.forEach(({ value, y, bw, badgeColor }) => {
+        ctx.save();
+        if (bw && isFinite(bw)) drawBadge((value / bw).toFixed(1), labelAreaLeft, y, badgeColor, false);
+        ctx.restore();
+      });
+
+      // Right-axis: adc2 badges
+      // If adc1 is also visible → stack below weight badge
+      // If no adc1 (adc2 alone with weight) → draw at actual y position like adc1
+      if (adc2Entries.length) {
+        const bw = parseFloat(datasetModel.getVisible?.()?.find(d => d.adc2)?.beanWeight) || 0;
+        if (hasVisibleAdc1 && weightEntries.length) {
+          const baseY = weightEntries[0].y + BH / 2 + GAP;
+          adc2Entries.forEach(({ value, badgeColor }, idx) => {
+            const ry = baseY + idx * (BH + GAP) + BH / 2;
+            ctx.save();
+            if (bw && isFinite(bw)) drawBadge((value / bw).toFixed(1), labelAreaLeft, ry, badgeColor, false);
+            else drawBadge(value.toFixed(1), labelAreaLeft, ry, badgeColor, false);
+            ctx.restore();
+          });
+        } else {
+          // No adc1 → same as adc1 logic: badge at actual y position
+          adc2Entries.forEach(({ value, y, badgeColor }) => {
+            ctx.save();
+            if (bw && isFinite(bw)) drawBadge((value / bw).toFixed(1), labelAreaLeft, y, badgeColor, false);
+            else drawBadge(value.toFixed(1), labelAreaLeft, y, badgeColor, false);
+            ctx.restore();
+          });
+        }
+      }
+    }
+  };
+
+  // Left Y-axis value badge for flowTempChart (no horizontal line)
+  const flowLeftBadgePlugin = {
+    id: 'flowLeftBadge',
+    afterDraw: chart => {
+      const activeIdx = isTooltipPinned ? pinnedIndex : crosshairIndex;
+      if (activeIdx === null || !chart.scales.y) return;
+      const ctx    = chart.ctx;
+      const yScale = chart.scales.y;
+      const xLeft  = chart.chartArea.left;
+      const BH = 16, PH = 4;
+
+      chart.data.datasets.forEach((ds, i) => {
+        if (!chart.isDatasetVisible(i)) return;
+        const value = ds.data?.[activeIdx];
+        if (value == null || !isFinite(value)) return;
+        const y = yScale.getPixelForValue(value);
+        const color = ds.borderColor || '#555';
+        ctx.save();
         ctx.font = 'bold 11px sans-serif';
-        const tw  = ctx.measureText(text).width;
-        const ph  = 4;   // horizontal padding
-        const bh  = 16;  // badge height
-        const bx  = labelAreaLeft + 2;
-        const by  = y - bh / 2;
-
-        ctx.fillStyle = ds.borderColor || '#555';
-        ctx.fillRect(bx, by, tw + ph * 2, bh);
-
+        const text = value.toFixed(2);
+        const tw = ctx.measureText(text).width;
+        const bx = xLeft - tw - PH * 2 - 2;
+        ctx.fillStyle = color;
+        ctx.fillRect(bx, y - BH / 2, tw + PH * 2, BH);
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, bx + ph, y);
-
+        ctx.fillText(text, bx + PH, y);
         ctx.restore();
       });
     }
@@ -299,10 +398,63 @@ export function initCharts(datasetModel, getCheckboxValues) {
     if (tooltipEl) tooltipEl.innerHTML = '<div style="color:#888;text-align:center;margin-top:20px;">游標移至圖表以顯示詳細數據</div>';
   };
 
+  // Draws a color legend for adc1 / adc2 in the top-right of the weight chart
+  const adcLegendPlugin = {
+    id: 'adcLegend',
+    afterDraw: chart => {
+      const adcDs = chart.data.datasets.filter(ds =>
+        ds.label?.includes('adc1') || ds.label?.includes('adc2')
+      );
+      if (!adcDs.length) return;
+
+      const ctx  = chart.ctx;
+      const area = chart.chartArea;
+      const lineW = 20, ph = 6, bh = 18, gap = 4;
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+
+      let x = area.right - ph;
+      let y = area.top + ph;
+
+      // Draw entries right-aligned, newest first
+      [...adcDs].reverse().forEach(ds => {
+        const label = ds.label?.includes('adc1') ? '下壺' : '濾杯';
+        const tw = ctx.measureText(label).width;
+        const entryW = lineW + gap + tw + ph * 2;
+        x -= entryW;
+
+        // Background chip
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(x, y, entryW, bh);
+
+        // Color line sample (dashed for adc1)
+        ctx.beginPath();
+        ctx.strokeStyle = ds.borderColor;
+        ctx.lineWidth = ds.borderWidth || 2;
+        if (ds.borderDash?.length) ctx.setLineDash(ds.borderDash);
+        else ctx.setLineDash([]);
+        ctx.moveTo(x + ph, y + bh / 2);
+        ctx.lineTo(x + ph + lineW, y + bh / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label text
+        ctx.fillStyle = '#333';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x + ph + lineW + gap, y + bh / 2);
+
+        x -= gap;
+      });
+
+      ctx.restore();
+    }
+  };
+
   weightChart = new Chart(document.getElementById('weightChart').getContext('2d'), {
     type: 'line',
     data: { labels: [], datasets: [] },
-    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, horizontalRatioLinePlugin],
+    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, horizontalRatioLinePlugin, adcLegendPlugin],
     options: {
       events: ['click'],
       responsive: true, maintainAspectRatio: false,
@@ -326,7 +478,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
   flowTempChart = new Chart(document.getElementById('flowTempChart').getContext('2d'), {
     type: 'line',
     data: { labels: [], datasets: [] },
-    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin],
+    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, flowLeftBadgePlugin],
     options: {
       events: ['click'],
       responsive: true, maintainAspectRatio: false,
@@ -334,7 +486,12 @@ export function initCharts(datasetModel, getCheckboxValues) {
       layout: { padding: 0 },
       scales: {
         x: { title: { display: true, text: 'Time (s)' }, grid: { color: 'rgba(0,0,0,0.08)' } },
-        y: { min: -20, max: 20, afterFit(s) { s.width = 60; }, title: { display: true, text: 'Flow / Temp' }, grid: { color: 'rgba(0,0,0,0.08)' } }
+        y: { min: -5, max: 15, afterFit(s) { s.width = 60; }, title: { display: true, text: 'Flow / Temp' }, grid: { color: 'rgba(0,0,0,0.08)' } },
+        yRight: {
+          type: 'linear', position: 'right', display: true,
+          ticks: { display: false }, grid: { drawOnChartArea: false },
+          afterFit(s) { s.width = 55; }
+        }
       }
     }
   });
@@ -345,7 +502,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
   document.getElementById('flowTempChart').addEventListener('mouseleave', handleChartMouseLeave);
 }
 
-export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, showAdc2 = true, showAdc1 = true }) {
+export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow = true, showTemp, showAdc2 = true, showAdc1 = true }) {
   if (!weightChart || !flowTempChart) return;
 
   const visible = datasetModel.getVisible();
@@ -366,51 +523,54 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, sho
 
   weightChart.data.labels = labels;
 
+  const isSingleDs = visible.length === 1;
   const weightDatasets = showWeight ? visible.map(d => ({
     datasetId: d.id, label: `${d.name} - Weight`, data: d.weight,
     beanWeight: parseFloat(d.beanWeight) || null,
-    borderColor: d.color, backgroundColor: `${d.color}20`,
+    borderColor: isSingleDs ? '#222' : d.color,
+    backgroundColor: isSingleDs ? 'rgba(0,0,0,0.08)' : d.color + '18',
     borderWidth: 2.5, fill: false, tension: 0.1, pointRadius: 0,
     yAxisID: 'y'
   })) : [];
 
   // ── adc1 / adc2 stacked area ──────────────────────────────────────────────
-  // Single dataset: adc1 = blue family, adc2 = orange family (easy to distinguish)
-  // Multiple datasets: both use d.color so datasets are identifiable by hue
-  const ADC1_SOLO = '#1565C0';   // deep blue
-  const ADC2_SOLO = '#E65100';   // deep orange
-  const isMultiDs = visible.filter(d => d.adc1?.length || d.adc2?.length).length > 1;
-
+  // Single dataset: adc1 = blue, adc2 = orange (classic solo colors)
+  // Multiple datasets: all series share d.color, distinguished by line style & opacity
+  const ADC1_SOLO = '#1565C0';
+  const ADC2_SOLO = '#E65100';
   const adcDatasets = [];
   visible.forEach(d => {
     const hasAdc1 = showAdc1 && d.adc1?.length;
     const hasAdc2 = showAdc2 && d.adc2?.length;
-
-    const c1 = isMultiDs ? d.color : ADC1_SOLO;
-    const c2 = isMultiDs ? d.color : ADC2_SOLO;
+    const c1 = isSingleDs ? ADC1_SOLO : d.color;
+    const c2 = isSingleDs ? ADC2_SOLO : d.color;
 
     if (hasAdc1) {
       adcDatasets.push({
-        datasetId: d.id, label: `${d.name} - adc1 咖啡液`, data: d.adc1,
+        datasetId: d.id, label: `${d.name} - adc1 下壺`, data: d.adc1,
         borderColor: c1,
         backgroundColor: c1 + '40',
         borderWidth: 2,
-        borderDash: [6, 3],          // adc1 always dashed
+        borderDash: [6, 3],          // 下壺 always dashed
         fill: 'origin', tension: 0.2, pointRadius: 0,
         yAxisID: 'y', order: 2
       });
     }
     if (hasAdc2) {
       // Stacked: adc2 data = adc1[i] + adc2[i] so top edge = total; fill down to adc1 line
-      const stackedData = (hasAdc1 && d.adc1)
+      const isStacked = !!(hasAdc1 && d.adc1);
+      const stackedData = isStacked
         ? d.adc2.map((v, i) => (d.adc1[i] ?? 0) + v)
         : d.adc2;
       adcDatasets.push({
-        datasetId: d.id, label: `${d.name} - adc2 注水感測`, data: stackedData,
-        borderColor: c2 + '99',
-        backgroundColor: c2 + '33',
+        datasetId: d.id, label: `${d.name} - adc2 濾杯`, data: stackedData,
+        // rawData: raw adc2 values for badge calculation (stacked data includes adc1 offset)
+        rawData: isStacked ? d.adc2 : null,
+        isStacked,
+        borderColor: isSingleDs ? c2 + '99' : d.color + '99',
+        backgroundColor: isSingleDs ? c2 + '33' : d.color + '22',
         borderWidth: 1.5,
-        fill: hasAdc1 ? '-1' : 'origin',
+        fill: isStacked ? '-1' : 'origin',
         tension: 0.2, pointRadius: 0,
         yAxisID: 'y', order: 3
       });
@@ -433,13 +593,14 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, sho
     yMax = null;
   }
 
-  // Configure yRatio axis — always visible so the right axis area is reserved for hover badges
+  // yRatio always displayed to keep right axis area reserved for hover badges
   const beanWeights = visible.map(d => parseFloat(d.beanWeight)).filter(bw => bw > 0 && isFinite(bw));
   weightChart.options.scales.yRatio.display = true;
-  if (beanWeights.length && yMax) {
+  const yMaxForRatio = yMax || (visible.flatMap(d => [...(d.adc1||[]), ...(d.adc2||[]), ...(d.weight||[])]).filter(v => isFinite(v)).reduce((a,b)=>Math.max(a,b), 0)) || null;
+  if (beanWeights.length && yMaxForRatio) {
     const minBW = Math.min(...beanWeights);
     weightChart.options.scales.yRatio.min = 0;
-    weightChart.options.scales.yRatio.max = yMax / minBW;
+    weightChart.options.scales.yRatio.max = yMaxForRatio / minBW;
     weightChart.options.scales.yRatio.ticks = { display: true };
     weightChart.options.scales.yRatio.title = { display: true, text: '水粉比' };
   } else {
@@ -452,20 +613,30 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showTemp, sho
   weightChart.update();
 
   const ftDatasets = [];
-  if (showFlow) visible.forEach(d => ftDatasets.push({
-    datasetId: d.id, label: `${d.name} - Flow`, data: d.flow,
-    borderColor: d.color, backgroundColor: `${d.color}20`,
-    borderWidth: 1.5, fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
-  }));
+  if (showFlow) visible.forEach(d => {
+    ftDatasets.push({
+      datasetId: d.id, label: `${d.name} - Pour Water Flow`, data: d.flow,
+      borderColor: d.color, backgroundColor: `${d.color}20`,
+      borderWidth: 1.5, fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
+    });
+  });
+  if (showBrewFlow) visible.forEach(d => {
+    if (!d.bflow?.length) return;
+    ftDatasets.push({
+      datasetId: d.id, label: `${d.name} - Brew Flow`, data: d.bflow,
+      borderColor: d.color, backgroundColor: `${d.color}20`,
+      borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
+    });
+  });
   if (showTemp) visible.forEach(d => ftDatasets.push({
     datasetId: d.id, label: `${d.name} - Temp`, data: d.temp,
     borderColor: d.color, backgroundColor: `${d.color}20`,
-    borderWidth: 1.5, borderDash: [5,5], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
+    borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
   }));
   flowTempChart.data.labels   = labels;
   flowTempChart.data.datasets = ftDatasets;
-  flowTempChart.options.scales.y.min = -20;
-  flowTempChart.options.scales.y.max = 20;
+  flowTempChart.options.scales.y.min = -5;
+  flowTempChart.options.scales.y.max = (showBrewFlow && !showFlow) ? 10 : 15;
   flowTempChart.update();
 }
 

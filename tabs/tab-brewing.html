@@ -18,6 +18,7 @@
     <div id="leftTooltipPanel" class="left-tooltip-panel" style="width:250px;flex-shrink:0;background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;overflow-y:auto;max-height:calc(76vh + 8px);box-shadow:0 2px 4px rgba(0,0,0,0.05);font-size:13px;">
         <div style="color:#888;text-align:center;margin-top:20px;">游標移至圖表以顯示詳細數據</div>
     </div>
+    <button class="panel-collapse-btn" id="collapseLeftBtn" data-target="left" title="收合左側面板">‹</button>
 
     <div class="chart-area">
         <div class="chart-stacked">
@@ -28,6 +29,7 @@
         <div id="mobileControlDrawer" class="mobile-control-drawer" style="display:none;"></div>
     </div>
 
+    <button class="panel-collapse-btn" id="collapseRightBtn" data-target="right" title="收合右側面板">›</button>
     <div class="control-panel" id="desktopControlPanel">
         <h3><b>圖表控制</b></h3>
         <div class="control-section">
@@ -44,14 +46,31 @@
             <button class="dataset-btn danger" style="width:100%;margin-top:8px;" data-action="clear-selected">🗑 清除選擇的資料集</button>
         </div>
         <div class="control-section">
-            <div class="section-title">顯示選項</div>
+            <div class="section-title" style="display:flex;align-items:center;gap:6px;">
+                顯示選項
+                <span class="display-help-icon" id="displayHelpIcon" title="顯示說明">?</span>
+            </div>
+            <div class="display-help-popup" id="displayHelpPopup">
+                <ul>
+                    <li><b>咖啡注水量 (Weight)</b>：上壺累積注水量曲線（g），黑色實線</li>
+                    <li><b>Pour Water Flow</b>：每秒注水流速（g/s），實線顯示</li>
+                    <li><b>Brew Flow</b>：每秒流入下壺的流速（g/s），虛線顯示</li>
+                    <li><b>Temp</b>：水溫感測器讀值（℃）</li>
+                    <li><b>下壺咖啡量 (下壺)</b>：下壺咖啡液累積重量，藍色面積</li>
+                    <li><b>濾杯咖啡量 (濾杯)</b>：濾杯注水感測器讀值，橘色面積堆疊於下壺上方</li>
+                </ul>
+            </div>
             <div class="control-item">
                 <input type="checkbox" id="showWeight" checked>
                 <label for="showWeight">Weight</label>
             </div>
             <div class="control-item">
                 <input type="checkbox" id="showFlow" checked>
-                <label for="showFlow">Flow</label>
+                <label for="showFlow">Pour Water Flow</label>
+            </div>
+            <div class="control-item">
+                <input type="checkbox" id="showBrewFlow" checked>
+                <label for="showBrewFlow">Brew Flow (虛線)</label>
             </div>
             <div class="control-item">
                 <input type="checkbox" id="showTemp" checked>
@@ -59,11 +78,11 @@
             </div>
             <div class="control-item">
                 <input type="checkbox" id="showAdc1" checked>
-                <label for="showAdc1">咖啡液量 (adc1)</label>
+                <label for="showAdc1">下壺咖啡量 (下壺)</label>
             </div>
             <div class="control-item">
                 <input type="checkbox" id="showAdc2" checked>
-                <label for="showAdc2">注水感測器 (adc2)</label>
+                <label for="showAdc2">濾杯咖啡量 (濾杯)</label>
             </div>
         </div>
     </div>

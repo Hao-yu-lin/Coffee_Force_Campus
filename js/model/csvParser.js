@@ -17,10 +17,23 @@ export function buildAkirakokiDataset(id, name, color, pd) {
 export function buildRawDataset(id, name, color, parsed) {
   if (!parsed) return null;
   const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp, adc1, adc2, extra } = parsed;
+  // Bloom duration: convert "MM:SS" → total seconds
+  let bloomTime = '';
+  if (extra?.beanBoilDuration) {
+    const parts = String(extra.beanBoilDuration).split(':');
+    if (parts.length === 2) bloomTime = String(parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10));
+    else bloomTime = extra.beanBoilDuration;
+  }
+
   return {
     id, name, color, date, beanWeight,
-    totalTime: timeLabels[timeLabels.length - 1] || '',
-    time: timeLabels, weight: pWC, flow: pWF, temp,
+    totalTime:  timeLabels[timeLabels.length - 1] || '',
+    totalWater: extra?.totalWaterInjection != null ? String(extra.totalWaterInjection) : '',
+    grindSize:  extra?.beanKeDu  || '',
+    waterTemp:  extra?.jugTemperature != null && extra.jugTemperature !== '' ? String(extra.jugTemperature) : '',
+    bloomTime,
+    tds:        extra?.tds       || '',
+    time: timeLabels, weight: pWC, flow: pWF, bflow: bF, temp,
     ...(adc1 ? { adc1 } : {}),
     ...(adc2 ? { adc2 } : {}),
     metrics: {

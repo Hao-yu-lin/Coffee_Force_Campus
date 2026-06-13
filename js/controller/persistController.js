@@ -17,10 +17,21 @@ export function init(appState, datasetModel) {
 
 function getDisplayOptions() {
   return {
-    showWeight: document.getElementById('showWeight')?.checked ?? true,
-    showFlow:   document.getElementById('showFlow')?.checked ?? true,
-    showTemp:   document.getElementById('showTemp')?.checked ?? true,
+    showWeight:   document.getElementById('showWeight')?.checked   ?? true,
+    showFlow:     document.getElementById('showFlow')?.checked     ?? true,
+    showBrewFlow: document.getElementById('showBrewFlow')?.checked ?? true,
+    showTemp:     document.getElementById('showTemp')?.checked     ?? true,
+    showAdc1:     document.getElementById('showAdc1')?.checked     ?? true,
+    showAdc2:     document.getElementById('showAdc2')?.checked     ?? true,
   };
+}
+
+function setDisplayOptions(opts) {
+  if (!opts) return;
+  ['showWeight','showFlow','showBrewFlow','showTemp','showAdc1','showAdc2'].forEach(k => {
+    const el = document.getElementById(k);
+    if (el && opts[k] !== undefined) el.checked = opts[k];
+  });
 }
 
 function saveData() {
@@ -47,6 +58,7 @@ function saveData() {
     dataset_visibility: _datasetModel.getAllVisibility(),
     cva_descriptive:    collectDescriptiveState(),
     cva_affective:      collectAffectiveState(_appState),
+    displayOptions:     getDisplayOptions(),
     distributionState:  getDistributionState(),   // particle datasets + zones + settings
   };
 
@@ -86,6 +98,11 @@ function loadHistory() {
           const targetDs = _datasetModel.get(targetId);
           if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
           if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective, _appState);
+        }
+
+        // ── Display options (checkboxes) ──────────────────────────────────────
+        if (data.displayOptions) {
+          setDisplayOptions(data.displayOptions);
         }
 
         // ── Particle size distribution ────────────────────────────────────────

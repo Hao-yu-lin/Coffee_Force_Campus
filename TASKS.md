@@ -25,7 +25,50 @@
 
 
 
+
 ## 已完成
+
+### [Bug fix — adc2 右側 badge 值與顯示邏輯修正]
+**類型**: fix
+**完成日期**: 2026-06-13
+**變更檔案**: `js/view/chartView.js`
+
+- **Bug 1**：adc1 + adc2 同時存在時，adc2 chart dataset 新增 `rawData`（原始 adc2 陣列）與 `isStacked` 旗標；`horizontalRatioLinePlugin` 改用 `rawData[activeIdx]` 計算右側 badge 值，不再使用堆疊後的合計值（adc1 + adc2）
+- **Bug 2**：只有 adc2 + weight（無 adc1）時，plugin 透過 `hasVisibleAdc1` 旗標判斷；無 adc1 時 adc2 右側 badge 改為畫在實際 y 位置，行為與 adc1 單獨存在時一致；有 adc1 時維持堆疊在 weight badge 下方的原邏輯
+
+### [圖表 Bug fix — Flow/Temp & Weight 圖表改善]
+**類型**: fix
+**完成日期**: 2026-06-13
+**變更檔案**: `js/view/chartView.js`, `tabs/tab-brewing.html`
+
+#### Flow/temp 圖表
+- Y 軸範圍改為 `min: -5, max: 15`（原本 -20/20）
+- 新增 `flowLeftBadgePlugin`：hover 時於左側 Y 軸顯示當下值 badge，不畫水平線
+
+#### Weight 圖表
+- weight 線改為黑色（`#222`），使其與 adc1/adc2 色系明確區隔
+- 取消 weight checkbox 時右側 `yRatio` 軸仍保留（以 adc1/adc2 資料計算上限），不因 weight 隱藏而消失
+- 右側 hover badge 依類型固定顏色：**adc1 藍底（#1565C0）、adc2 橘底（#E65100）、weight 黑底（#222）**，各自顯示個別數值
+- adc1 與 adc2 同時存在時，adc2 右側 badge 疊排於 weight badge 正下方
+
+#### 顯示選項文字更名
+- 「咖啡液量 (adc1)」→「**下壺咖啡量 (adc1)**」
+- 「注水感測器 (adc2)」→「**濾杯咖啡量 (adc2)**」
+- 說明 popup 中 weight 描述更新為「**咖啡注水量**」
+
+### [沖煮圖表功能擴充]
+**類型**: feature
+**完成日期**: 2026-06-13
+**變更檔案**: `js/view/chartView.js`, `js/model/csvParser.js`, `js/utils.js`, `tabs/tab-brewing.html`, `js/controller/appController.js`, `css/style.css`
+
+- **Brew Flow 虛線**：將 `bsize`（下壺流速）加入 Flow 圖表，以同色虛線（`borderDash: [6,3]`）顯示；右側控制面板新增 `showBrewFlow` checkbox（標籤「Brew Flow (虛線)」）；tooltip 補上 `brew flow` 數值
+- **adc1/adc2 圖例**：`adcLegendPlugin` 繪製於 weight 圖右上角，顯示各線段的顏色＋名稱（adc1 虛線樣式）
+- **左右面板收合**：`brewing-layout` 左側詳細數據面板與右側控制面板各新增 `‹` / `›` 收合按鈕，收合時面板寬度以 CSS transition 縮為 0，並在 280ms 後呼叫 `chart.resize()` 自動更新刻度密度
+- **X 軸對齊修正**：Flow 圖新增隱形 `yRight` 軸（`afterFit width: 55px`），與 Weight 圖右側 `yRatio` 軸等寬，確保兩圖 X 軸刻度一致
+- **顯示選項說明 icon**：「顯示選項」標題旁新增 `?` 圓形按鈕，點擊展開/收合各選項用途說明 popup
+- **Pour Water Flow 更名**：Flow 圖表 label 及 tooltip 由「Flow」改為「Pour Water Flow」
+- **自動填入表單欄位**：匯入 TXT 紀錄後自動填入 `totalWater`（`totalWaterInjection`）、`grindSize`（`beanKeDu`）、`waterTemp`（`jugTemperature`）、`bloomTime`（`beanBoilDuration` MM:SS → 秒）、`tds`
+- **左側 Y 軸 badge**：hover 時在 weight 圖左側 Y 軸顯示克數 badge，右側依 beanWeight 顯示水粉比；所有可見 dataset（含 adc1/adc2）皆繪製水平虛線與左側 badge
 
 ### [粒徑分布儲存與讀取]
 **類型**: feature

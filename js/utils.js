@@ -215,7 +215,10 @@ function parseTxtBrewingLog(jsonText) {
                 fwjl:                meta.fwjl,              // sensory scores {fw,sw,tw,chd,yy,ph}
                 beanMoDouJi:         meta.beanMoDouJi,       // grinder model
                 beanKeDu:            meta.beanKeDu,          // grind size
-                extraNote:           meta.extraNote          // free-text note
+                extraNote:           meta.extraNote,         // free-text note
+                totalWaterInjection: meta.totalWaterInjection, // total water injected (g)
+                jugTemperature:      meta.jugTemperature,    // water temperature
+                beanBoilDuration:    meta.beanBoilDuration   // bloom duration (MM:SS)
             }
         };
     } catch (_) {

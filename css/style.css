@@ -223,8 +223,45 @@ h1 {
 /* ── Brewing Tab Layout ─────────────────────────── */
 .brewing-layout {
     display: flex;
-    gap: 16px;
+    gap: 8px;
     align-items: flex-start;
+}
+
+/* Panel collapse button */
+.panel-collapse-btn {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 18px;
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.15s;
+}
+.panel-collapse-btn:hover { background: #dee2e6; color: #333; }
+
+/* Collapsed panels */
+.left-tooltip-panel.collapsed,
+.control-panel.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+    opacity: 0;
+    transition: width 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+}
+.left-tooltip-panel {
+    transition: width 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+}
+.control-panel {
+    transition: width 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
 }
 
 .chart-area { flex: 1; min-width: 0; }
@@ -273,6 +310,42 @@ h1 {
     margin-bottom: 8px;
     font-size: 0.88em;
 }
+
+/* Display Help Icon & Popup */
+.display-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #aaa;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.display-help-icon:hover { background: #666; }
+
+.display-help-popup {
+    display: none;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    font-size: 0.82em;
+    color: #444;
+    line-height: 1.6;
+}
+.display-help-popup ul {
+    margin: 0;
+    padding-left: 14px;
+}
+.display-help-popup.visible { display: block; }
 
 /* Dataset Items */
 .dataset-item {
