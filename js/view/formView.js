@@ -1,4 +1,4 @@
-const PARAM_KEYS = ['beanWeight','totalWater','grindSize','waterTemp','bloomTime','tds','totalTime'];
+const PARAM_KEYS = ['beanWeight','totalWater','grindSize','waterTemp','bloomTime','tds','totalTime','extraNote'];
 
 export function getFormValues() {
   const result = {};

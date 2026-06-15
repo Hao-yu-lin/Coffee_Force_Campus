@@ -40,10 +40,6 @@ function saveData() {
 
   const activeId = _appState.getActiveId();
   if (activeId && _datasetModel.get(activeId)) {
-    const formVals = getFormValues();
-    ['beanWeight','totalWater','grindSize','waterTemp','bloomTime','tds','totalTime'].forEach(k => {
-      _datasetModel.setParam(activeId, k, formVals[k]);
-    });
     _datasetModel.saveCVAState(activeId, collectDescriptiveState(), collectAffectiveState(_appState));
   }
 

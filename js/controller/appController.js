@@ -4,7 +4,7 @@ import { initCharts, updateCharts, getChartInstances } from '../view/chartView.j
 import { buildIntensityButtons, buildAffectiveGrid, initOverallSelects,
          initializeCATAPanels, initializeSCAPanels, toggleCVAPanel } from '../view/cvaView.js';
 import { bindTabButtons, toggleMobileDrawer } from '../view/tabView.js';
-import { bindParamInputs } from '../view/formView.js';
+
 import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets } from './datasetController.js';
 import { init as initImportController } from './importController.js';
 import { init as initPersistController } from './persistController.js';
@@ -94,12 +94,6 @@ async function init() {
   initializeCATAPanels();
   initializeSCAPanels();
   initOverallSelects();
-
-  // 8. Param input writeback
-  bindParamInputs((key, val) => {
-    const id = appState.getActiveId();
-    if (id) datasetModel.setParam(id, key, val);
-  });
 
   // 9. Sub-controllers
   initDatasetController(appState, datasetModel);

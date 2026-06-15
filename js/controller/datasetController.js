@@ -1,5 +1,6 @@
 import { renderDatasetList, renderCVADatasetPanel } from '../view/datasetListView.js';
-import { setFormValues, clearFormValues, showDatasetBanner, hideDatasetBanner } from '../view/formView.js';
+import { showDatasetBanner, hideDatasetBanner } from '../view/formView.js';
+import { renderParamsCards } from '../view/paramsView.js';
 import { updateCharts } from '../view/chartView.js';
 import { collectDescriptiveState, collectAffectiveState,
          clearDescriptiveState, clearAffectiveState,
@@ -10,6 +11,23 @@ let _appState, _datasetModel;
 export function init(appState, datasetModel) {
   _appState = appState;
   _datasetModel = datasetModel;
+
+  // Event delegation for params cards (input change + collapse toggle)
+  document.getElementById('paramsContainer')?.addEventListener('input', e => {
+    const input = e.target;
+    const dsId = input.dataset.dsId;
+    const field = input.dataset.field;
+    if (dsId && field) _datasetModel.setParam(dsId, field, input.value);
+  });
+  document.getElementById('paramsContainer')?.addEventListener('click', e => {
+    const btn = e.target.closest('.params-card-toggle');
+    if (!btn) return;
+    const card = document.querySelector(`.params-card[data-ds-id="${btn.dataset.dsId}"]`);
+    if (card) {
+      card.classList.toggle('collapsed');
+      btn.textContent = card.classList.contains('collapsed') ? '▸' : '▾';
+    }
+  });
 }
 
 function getDisplayOptions() {
@@ -30,6 +48,7 @@ export function refreshViews() {
     { onToggle: toggleDataset, onLoad: loadDatasetParams, onDelete: deleteDataset }
   );
   renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams);
+  renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
   updateCharts(_datasetModel, getDisplayOptions());
 }
 
@@ -44,16 +63,6 @@ export function loadDatasetParams(datasetId) {
   }
 
   _appState.setActiveId(datasetId);
-
-  setFormValues({
-    beanWeight: ds.beanWeight || '',
-    totalTime:  ds.totalTime  || '',
-    totalWater: ds.totalWater || '',
-    grindSize:  ds.grindSize  || '',
-    waterTemp:  ds.waterTemp  || '',
-    bloomTime:  ds.bloomTime  || '',
-    tds:        ds.tds        || ''
-  });
 
   clearDescriptiveState();
   clearAffectiveState(_appState);
@@ -98,7 +107,6 @@ export function clearSelectedDatasets() {
   if (wasActive || _datasetModel.count() === 0) {
     _appState.setActiveId(null);
     hideDatasetBanner();
-    clearFormValues(['beanWeight','totalWater','grindSize','waterTemp','bloomTime','tds','totalTime']);
   }
 
   if (_datasetModel.count() > 0 && !_appState.getActiveId()) {

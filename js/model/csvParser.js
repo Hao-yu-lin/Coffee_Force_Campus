@@ -33,6 +33,7 @@ export function buildRawDataset(id, name, color, parsed) {
     waterTemp:  extra?.jugTemperature != null && extra.jugTemperature !== '' ? String(extra.jugTemperature) : '',
     bloomTime,
     tds:        extra?.tds       || '',
+    extraNote:  extra?.extraNote || '',
     time: timeLabels, weight: pWC, flow: pWF, bflow: bF, temp,
     ...(adc1 ? { adc1 } : {}),
     ...(adc2 ? { adc2 } : {}),
