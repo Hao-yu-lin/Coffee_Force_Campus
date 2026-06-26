@@ -4,6 +4,7 @@ import { collectDescriptiveState, collectAffectiveState,
          restoreDescriptiveState, restoreAffectiveState,
          collectCVAHeaderState } from '../view/cvaView.js';
 import { loadDatasetParams, refreshViews } from './datasetController.js';
+import { buildEmptyDataset } from '../model/csvParser.js';
 import { getDistributionState, loadDistributionState } from './distributionController.js';
 
 let _appState, _datasetModel;
@@ -132,16 +133,27 @@ function loadHistory() {
           if (data.target    !== undefined) setFormValues({ brewingTarget: data.target });
           if (data.timestamp !== undefined) setFormValues({ recordTime:    data.timestamp });
 
-          if (data.datasets) {
+          {
             const visibility = data.dataset_visibility || {};
             let lastAddedId = null;
 
-            Object.entries(data.datasets).forEach(([, ds]) => {
+            Object.entries(data.datasets || {}).forEach(([, ds]) => {
               const newId = _appState.nextDatasetId();
               _datasetModel.add(newId, ds);
               _datasetModel.setVisibility(newId, visibility[newId] ?? true);
               lastAddedId = newId;
             });
+
+            // Legacy files may have no datasets but store CVA state at top level
+            if (!lastAddedId && (data.cva_descriptive || data.cva_affective)) {
+              const newId = _appState.nextDatasetId();
+              const ds = buildEmptyDataset(newId, data.name || 'Imported', '#1A237E');
+              if (data.cva_descriptive) ds.cva_descriptive = data.cva_descriptive;
+              if (data.cva_affective)   ds.cva_affective   = data.cva_affective;
+              _datasetModel.add(newId, ds);
+              _datasetModel.setVisibility(newId, true);
+              lastAddedId = newId;
+            }
 
             if (lastAddedId) {
               loadDatasetParams(lastAddedId);
