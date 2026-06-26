@@ -171,6 +171,13 @@ function readFilesSequentially(files, onDone) {
   next();
 }
 
+function triggerFileInput(input) {
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.click();
+  input.addEventListener('change', () => document.body.removeChild(input), { once: true });
+}
+
 function loadHistory() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.json'; input.multiple = true;
@@ -181,7 +188,7 @@ function loadHistory() {
       else alert(`✅ 成功載入 ${files.length} 個檔案！`);
     });
   };
-  input.click();
+  triggerFileInput(input);
 }
 
 function loadHistoryFolder() {
@@ -196,5 +203,5 @@ function loadHistoryFolder() {
       else alert(`✅ 成功載入資料夾內 ${ok} 個檔案！`);
     });
   };
-  input.click();
+  triggerFileInput(input);
 }
