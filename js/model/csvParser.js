@@ -1,6 +1,10 @@
 // Uses globals: parseAkirakokiRows, parseRawDataRows, detectCSVFormat,
 //               getAkirakokiMinLen, getDatasetColor (from utils.js plain script)
 
+export function buildEmptyDataset(id, name, color) {
+  return { id, name, color, time: [], weight: [], flow: [], temp: [], totalTime: '', cvaNote: '' };
+}
+
 export function buildAkirakokiDataset(id, name, color, pd) {
   const minLen = getAkirakokiMinLen(pd);
   if (!minLen) throw new Error('No usable data rows');

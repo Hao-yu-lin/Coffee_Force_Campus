@@ -5,7 +5,7 @@ import { buildIntensityButtons, buildAffectiveGrid, initOverallSelects,
          initializeCATAPanels, initializeSCAPanels, toggleCVAPanel } from '../view/cvaView.js';
 import { bindTabButtons, toggleMobileDrawer } from '../view/tabView.js';
 
-import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets } from './datasetController.js';
+import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets, addEmptyCVADataset } from './datasetController.js';
 import { init as initImportController } from './importController.js';
 import { init as initPersistController } from './persistController.js';
 import { init as initCvaController } from './cvaController.js';
@@ -31,7 +31,12 @@ async function init() {
   // 2. Bind tab buttons
   bindTabButtons(
     document.querySelectorAll('.tab-btn'),
-    document.querySelectorAll('.tab-mobile-btn')
+    document.querySelectorAll('.tab-mobile-btn'),
+    (tabName) => {
+      if ((tabName === 'descriptive' || tabName === 'affective') && datasetModel.count() === 0) {
+        addEmptyCVADataset();
+      }
+    }
   );
 
   // 3. Mobile drawer toggle

@@ -4,7 +4,9 @@ import { renderParamsCards } from '../view/paramsView.js';
 import { updateCharts } from '../view/chartView.js';
 import { collectDescriptiveState, collectAffectiveState,
          clearDescriptiveState, clearAffectiveState,
-         restoreDescriptiveState, restoreAffectiveState } from '../view/cvaView.js';
+         restoreDescriptiveState, restoreAffectiveState,
+         updateCVAHeaderFields, collectCVAHeaderState } from '../view/cvaView.js';
+import { buildEmptyDataset } from '../model/csvParser.js';
 
 let _appState, _datasetModel;
 
@@ -13,6 +15,36 @@ export function init(appState, datasetModel) {
   _datasetModel = datasetModel;
 
   // Event delegation for params cards (input change + collapse toggle)
+  // CVA 新增資料集按鈕
+  ['cva-desc-add-btn', 'cva-aff-add-btn'].forEach(btnId => {
+    document.getElementById(btnId)?.addEventListener('click', addEmptyCVADataset);
+  });
+
+  // 當名稱欄位改動時，同步到另一個 tab 並更新 model
+  ['cva-desc-name', 'cva-aff-name'].forEach(nameId => {
+    document.getElementById(nameId)?.addEventListener('input', e => {
+      const other = nameId === 'cva-desc-name' ? 'cva-aff-name' : 'cva-desc-name';
+      const otherEl = document.getElementById(other);
+      if (otherEl) otherEl.value = e.target.value;
+      const id = _appState.getActiveId();
+      if (id && _datasetModel.get(id)) {
+        _datasetModel.get(id).name = e.target.value;
+        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams);
+      }
+    });
+  });
+
+  // 當備註欄位改動時，同步到另一個 tab 並更新 model
+  ['cva-desc-note', 'cva-aff-note'].forEach(noteId => {
+    document.getElementById(noteId)?.addEventListener('input', e => {
+      const other = noteId === 'cva-desc-note' ? 'cva-aff-note' : 'cva-desc-note';
+      const otherEl = document.getElementById(other);
+      if (otherEl) otherEl.value = e.target.value;
+      const id = _appState.getActiveId();
+      if (id && _datasetModel.get(id)) _datasetModel.get(id).cvaNote = e.target.value;
+    });
+  });
+
   document.getElementById('paramsContainer')?.addEventListener('input', e => {
     const input = e.target;
     const dsId = input.dataset.dsId;
@@ -56,7 +88,7 @@ export function loadDatasetParams(datasetId) {
   const ds = _datasetModel.get(datasetId);
   if (!ds) return;
 
-  // Save current CVA state to old dataset before switching
+  // Save current CVA state (including name/note) to old dataset before switching
   const prevId = _appState.getActiveId();
   if (prevId && _datasetModel.get(prevId) && prevId !== datasetId) {
     _datasetModel.saveCVAState(prevId, collectDescriptiveState(), collectAffectiveState(_appState));
@@ -69,6 +101,28 @@ export function loadDatasetParams(datasetId) {
   if (ds.cva_descriptive) restoreDescriptiveState(ds.cva_descriptive);
   if (ds.cva_affective)   restoreAffectiveState(ds.cva_affective, _appState);
 
+  updateCVAHeaderFields(ds);
+  showDatasetBanner(ds.name);
+  refreshViews();
+}
+
+export function addEmptyCVADataset() {
+  // Save current CVA state before creating new dataset
+  const prevId = _appState.getActiveId();
+  if (prevId && _datasetModel.get(prevId)) {
+    _datasetModel.saveCVAState(prevId, collectDescriptiveState(), collectAffectiveState(_appState));
+  }
+
+  const { name } = collectCVAHeaderState();
+  const id    = _appState.nextDatasetId();
+  const color = getDatasetColor(_datasetModel.count());
+  const ds    = buildEmptyDataset(id, name || `新資料集 ${_datasetModel.count() + 1}`, color);
+
+  _datasetModel.add(id, ds);
+  _appState.setActiveId(id);
+  clearDescriptiveState();
+  clearAffectiveState(_appState);
+  updateCVAHeaderFields(ds);
   showDatasetBanner(ds.name);
   refreshViews();
 }

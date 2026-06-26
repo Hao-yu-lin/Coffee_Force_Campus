@@ -8,12 +8,18 @@ export function switchTab(tabName) {
   document.querySelector(`.tab-mobile-btn[data-tab="${tabName}"]`)?.classList.add('active');
 }
 
-export function bindTabButtons(desktopBtns, mobileBtns) {
+export function bindTabButtons(desktopBtns, mobileBtns, onTabSwitch) {
   desktopBtns.forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    btn.addEventListener('click', () => {
+      switchTab(btn.dataset.tab);
+      onTabSwitch?.(btn.dataset.tab);
+    });
   });
   mobileBtns.forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    btn.addEventListener('click', () => {
+      switchTab(btn.dataset.tab);
+      onTabSwitch?.(btn.dataset.tab);
+    });
   });
 }
 

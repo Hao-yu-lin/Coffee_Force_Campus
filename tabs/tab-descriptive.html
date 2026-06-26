@@ -1,6 +1,16 @@
 <div class="cva-mobile-switcher" id="cva-desc-mobile-list"></div>
 <div class="cva-layout">
     <div class="cva-main">
+        <div class="cva-header-bar">
+            <div class="cva-header-row">
+                <label class="cva-header-label">資料名稱</label>
+                <input type="text" id="cva-desc-name" class="cva-name-input" placeholder="輸入資料名稱..." />
+            </div>
+            <div class="cva-header-row">
+                <label class="cva-header-label">備註</label>
+                <textarea id="cva-desc-note" class="cva-note-input" placeholder="備註..."></textarea>
+            </div>
+        </div>
         <!-- Fragrance/Aroma -->
         <div class="cva-section">
             <h3><span>Fragrance/Aroma</span>
@@ -155,7 +165,7 @@
         </div>
     </div>
     <div class="cva-side-panel">
-        <div class="cva-side-title">📊 資料集切換</div>
+        <div class="cva-side-title">📊 資料集切換 <button id="cva-desc-add-btn" class="cva-side-add-btn" title="新增空白資料集">＋</button></div>
         <div id="cva-desc-dataset-list"></div>
     </div>
 </div>

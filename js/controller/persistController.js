@@ -1,7 +1,8 @@
 import { getFormValues, setFormValues } from '../view/formView.js';
 import { updateCharts } from '../view/chartView.js';
 import { collectDescriptiveState, collectAffectiveState,
-         restoreDescriptiveState, restoreAffectiveState } from '../view/cvaView.js';
+         restoreDescriptiveState, restoreAffectiveState,
+         collectCVAHeaderState } from '../view/cvaView.js';
 import { loadDatasetParams, refreshViews } from './datasetController.js';
 import { getDistributionState, loadDistributionState } from './distributionController.js';
 
@@ -38,8 +39,13 @@ function saveData() {
   const now = new Date().toLocaleString('zh-TW');
   setFormValues({ recordTime: now });
 
+  // Sync header name/note to active dataset before saving
   const activeId = _appState.getActiveId();
   if (activeId && _datasetModel.get(activeId)) {
+    const { name, note } = collectCVAHeaderState();
+    const ds = _datasetModel.get(activeId);
+    if (name) ds.name = name;
+    ds.cvaNote = note;
     _datasetModel.saveCVAState(activeId, collectDescriptiveState(), collectAffectiveState(_appState));
   }
 
@@ -52,10 +58,8 @@ function saveData() {
     activeDatasetId:    _appState.getActiveId(),
     datasets:           _datasetModel.getAll(),
     dataset_visibility: _datasetModel.getAllVisibility(),
-    cva_descriptive:    collectDescriptiveState(),
-    cva_affective:      collectAffectiveState(_appState),
     displayOptions:     getDisplayOptions(),
-    distributionState:  getDistributionState(),   // particle datasets + zones + settings
+    distributionState:  getDistributionState(),
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -86,14 +90,29 @@ function loadHistory() {
         // ── Brewing datasets ──────────────────────────────────────────────────
         if (data.datasets) {
           _datasetModel.replaceAll(data.datasets, data.dataset_visibility || {});
-          _appState.setCounter(Object.keys(data.datasets).length);
-          refreshViews();
+
+          // Set counter to max existing index + 1 to avoid ID collisions
+          const ids = Object.keys(data.datasets);
+          const maxIdx = ids.reduce((max, id) => {
+            const n = parseInt(id.replace('dataset_', ''), 10);
+            return isNaN(n) ? max : Math.max(max, n);
+          }, -1);
+          _appState.setCounter(maxIdx + 1);
+
           const targetId = (data.activeDatasetId && _datasetModel.get(data.activeDatasetId))
-            ? data.activeDatasetId : _datasetModel.getIds()[0];
-          if (targetId) loadDatasetParams(targetId);
-          const targetDs = _datasetModel.get(targetId);
-          if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
-          if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective, _appState);
+            ? data.activeDatasetId
+            : ids[ids.length - 1];
+
+          if (targetId) {
+            loadDatasetParams(targetId);   // restores CVA state + updateCVAHeaderFields
+
+            // Backward compat: old files store CVA state at top level, not per-dataset
+            const targetDs = _datasetModel.get(targetId);
+            if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
+            if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective, _appState);
+          } else {
+            refreshViews();
+          }
         }
 
         // ── Display options (checkboxes) ──────────────────────────────────────

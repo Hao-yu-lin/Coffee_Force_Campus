@@ -163,6 +163,29 @@ export function updateAffectiveScoreDisplay(scores, sections) {
   if (cva)  cva.textContent = `CVA 100-pt Score: ${calcCVAScore(total).toFixed(1)}`;
 }
 
+/* ── Header fields (名稱 / 備註) ──────────────── */
+
+export function updateCVAHeaderFields(ds) {
+  const name = ds?.name || '';
+  const note = ds?.cvaNote || '';
+  ['desc', 'aff'].forEach(tab => {
+    const nameEl = document.getElementById(`cva-${tab}-name`);
+    const noteEl = document.getElementById(`cva-${tab}-note`);
+    if (nameEl) nameEl.value = name;
+    if (noteEl) noteEl.value = note;
+  });
+}
+
+export function collectCVAHeaderState() {
+  const name = document.getElementById('cva-desc-name')?.value
+            || document.getElementById('cva-aff-name')?.value
+            || '';
+  const note = document.getElementById('cva-desc-note')?.value
+            || document.getElementById('cva-aff-note')?.value
+            || '';
+  return { name: name.trim(), note: note };
+}
+
 /* ── Clear ────────────────────────────────────── */
 
 export function clearDescriptiveState() {

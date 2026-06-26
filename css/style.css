@@ -510,6 +510,66 @@ h1 {
     font-size: 0.88em;
 }
 
+/* CVA Header Bar */
+.cva-header-bar {
+    background: #f0f4ff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cva-header-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cva-header-label {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--primary-dark);
+    white-space: nowrap;
+    min-width: 56px;
+}
+.cva-name-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9em;
+    background: white;
+}
+.cva-name-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+.cva-note-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85em;
+    background: white;
+    resize: vertical;
+    min-height: 36px;
+    height: 36px;
+    font-family: inherit;
+}
+.cva-note-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+.cva-side-add-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.95em;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 1px 7px;
+    line-height: 1.4;
+    vertical-align: middle;
+    transition: background 0.15s;
+}
+.cva-side-add-btn:hover { background: var(--primary-dark); }
+
 /* Mobile CVA Dataset Switcher */
 .cva-mobile-switcher {
     display: none;
