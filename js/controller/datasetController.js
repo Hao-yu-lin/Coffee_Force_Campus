@@ -113,10 +113,12 @@ export function addEmptyCVADataset() {
     _datasetModel.saveCVAState(prevId, collectDescriptiveState(), collectAffectiveState(_appState));
   }
 
-  const { name } = collectCVAHeaderState();
+  const now = new Date();
+  const hh  = String(now.getHours()).padStart(2, '0');
+  const mi  = String(now.getMinutes()).padStart(2, '0');
   const id    = _appState.nextDatasetId();
   const color = getDatasetColor(_datasetModel.count());
-  const ds    = buildEmptyDataset(id, name || `新資料集 ${_datasetModel.count() + 1}`, color);
+  const ds    = buildEmptyDataset(id, `Default_${hh}${mi}`, color);
 
   _datasetModel.add(id, ds);
   _appState.setActiveId(id);
