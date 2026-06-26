@@ -883,6 +883,33 @@ h1 {
     .score-btn { width: 32px; height: 32px; font-size: 0.82em; }
 }
 
+/* Floating action button (mobile only) */
+.fab-add {
+    display: none;
+    position: fixed;
+    bottom: 76px;
+    right: 20px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    font-size: 1.6em;
+    line-height: 1;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(102,126,234,0.5);
+    z-index: 999;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.fab-add:active {
+    transform: scale(0.92);
+    box-shadow: 0 2px 8px rgba(102,126,234,0.4);
+}
+@media (max-width: 640px) {
+    .fab-add { display: flex; align-items: center; justify-content: center; }
+}
+
 /* Very small screens: ≤ 380px */
 @media (max-width: 380px) {
     .params-grid { grid-template-columns: 1fr; }
