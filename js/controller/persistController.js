@@ -15,6 +15,7 @@ export function init(appState, datasetModel) {
 
   document.querySelector('.btn-save')?.addEventListener('click', saveData);
   document.querySelector('.btn-load')?.addEventListener('click', loadHistory);
+  document.querySelector('.btn-load-folder')?.addEventListener('click', loadHistoryFolder);
 }
 
 function getDisplayOptions() {
@@ -102,77 +103,98 @@ function saveData() {
   alert(`✅ 已儲存 ${ids.length} 個資料集！`);
 }
 
-function loadHistory() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
-  input.onchange = e => {
-    const file = e.target.files[0]; if (!file) return;
+function importJSONData(data) {
+  if (data.schema === 'per-dataset') {
+    const ds = data.dataset;
+    if (!ds) throw new Error('無效的 per-dataset 格式');
+    const newId = _appState.nextDatasetId();
+    _datasetModel.add(newId, ds);
+    _datasetModel.setVisibility(newId, data.visibility ?? true);
+    loadDatasetParams(newId);
+    if (data.displayOptions)    setDisplayOptions(data.displayOptions);
+    if (data.distributionState) loadDistributionState(data.distributionState);
+
+  } else {
+    if (data.name      !== undefined) setFormValues({ coffeeName:    data.name });
+    if (data.target    !== undefined) setFormValues({ brewingTarget: data.target });
+    if (data.timestamp !== undefined) setFormValues({ recordTime:    data.timestamp });
+
+    const visibility = data.dataset_visibility || {};
+    let lastAddedId = null;
+
+    Object.entries(data.datasets || {}).forEach(([, ds]) => {
+      const newId = _appState.nextDatasetId();
+      _datasetModel.add(newId, ds);
+      _datasetModel.setVisibility(newId, visibility[newId] ?? true);
+      lastAddedId = newId;
+    });
+
+    if (!lastAddedId && (data.cva_descriptive || data.cva_affective)) {
+      const newId = _appState.nextDatasetId();
+      const ds = buildEmptyDataset(newId, data.name || 'Imported', '#1A237E');
+      if (data.cva_descriptive) ds.cva_descriptive = data.cva_descriptive;
+      if (data.cva_affective)   ds.cva_affective   = data.cva_affective;
+      _datasetModel.add(newId, ds);
+      _datasetModel.setVisibility(newId, true);
+      lastAddedId = newId;
+    }
+
+    if (lastAddedId) {
+      loadDatasetParams(lastAddedId);
+      const targetDs = _datasetModel.get(lastAddedId);
+      if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
+      if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective, _appState);
+    } else {
+      refreshViews();
+    }
+
+    if (data.displayOptions)    setDisplayOptions(data.displayOptions);
+    if (data.distributionState) loadDistributionState(data.distributionState);
+  }
+}
+
+function readFilesSequentially(files, onDone) {
+  let idx = 0;
+  const errors = [];
+  function next() {
+    if (idx >= files.length) { onDone(errors); return; }
+    const file = files[idx++];
+    if (!file.name.toLowerCase().endsWith('.json')) { next(); return; }
     const reader = new FileReader();
     reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-
-        if (data.schema === 'per-dataset') {
-          // ── New per-dataset format ────────────────────────────────────────
-          const ds = data.dataset;
-          if (!ds) throw new Error('無效的 per-dataset 格式');
-
-          // Always allocate a fresh ID to avoid overwriting existing datasets
-          const newId = _appState.nextDatasetId();
-          _datasetModel.add(newId, ds);
-          _datasetModel.setVisibility(newId, data.visibility ?? true);
-
-          loadDatasetParams(newId);
-
-          if (data.displayOptions)    setDisplayOptions(data.displayOptions);
-          if (data.distributionState) loadDistributionState(data.distributionState);
-
-        } else {
-          // ── Legacy all-in-one format (version ≤ 4) ───────────────────────
-          if (data.name      !== undefined) setFormValues({ coffeeName:    data.name });
-          if (data.target    !== undefined) setFormValues({ brewingTarget: data.target });
-          if (data.timestamp !== undefined) setFormValues({ recordTime:    data.timestamp });
-
-          {
-            const visibility = data.dataset_visibility || {};
-            let lastAddedId = null;
-
-            Object.entries(data.datasets || {}).forEach(([, ds]) => {
-              const newId = _appState.nextDatasetId();
-              _datasetModel.add(newId, ds);
-              _datasetModel.setVisibility(newId, visibility[newId] ?? true);
-              lastAddedId = newId;
-            });
-
-            // Legacy files may have no datasets but store CVA state at top level
-            if (!lastAddedId && (data.cva_descriptive || data.cva_affective)) {
-              const newId = _appState.nextDatasetId();
-              const ds = buildEmptyDataset(newId, data.name || 'Imported', '#1A237E');
-              if (data.cva_descriptive) ds.cva_descriptive = data.cva_descriptive;
-              if (data.cva_affective)   ds.cva_affective   = data.cva_affective;
-              _datasetModel.add(newId, ds);
-              _datasetModel.setVisibility(newId, true);
-              lastAddedId = newId;
-            }
-
-            if (lastAddedId) {
-              loadDatasetParams(lastAddedId);
-              const targetDs = _datasetModel.get(lastAddedId);
-              if (!targetDs?.cva_descriptive && data.cva_descriptive) restoreDescriptiveState(data.cva_descriptive);
-              if (!targetDs?.cva_affective   && data.cva_affective)   restoreAffectiveState(data.cva_affective, _appState);
-            } else {
-              refreshViews();
-            }
-          }
-
-          if (data.displayOptions)    setDisplayOptions(data.displayOptions);
-          if (data.distributionState) loadDistributionState(data.distributionState);
-        }
-
-        alert(`✅ 歷史檔案「${file.name}」讀取成功！`);
-      } catch (err) { alert('❌ 讀取失敗：' + err.message); }
+      try { importJSONData(JSON.parse(ev.target.result)); }
+      catch (err) { errors.push(`${file.name}: ${err.message}`); }
+      next();
     };
     reader.readAsText(file);
+  }
+  next();
+}
+
+function loadHistory() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json'; input.multiple = true;
+  input.onchange = e => {
+    const files = [...e.target.files]; if (!files.length) return;
+    readFilesSequentially(files, errors => {
+      if (errors.length) alert(`⚠️ 部分檔案讀取失敗：\n${errors.join('\n')}`);
+      else alert(`✅ 成功載入 ${files.length} 個檔案！`);
+    });
+  };
+  input.click();
+}
+
+function loadHistoryFolder() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.webkitdirectory = true;
+  input.onchange = e => {
+    const files = [...e.target.files].filter(f => f.name.toLowerCase().endsWith('.json'));
+    if (!files.length) { alert('⚠️ 資料夾內沒有 JSON 檔案'); return; }
+    readFilesSequentially(files, errors => {
+      const ok = files.length - errors.length;
+      if (errors.length) alert(`✅ 載入 ${ok} 個、失敗 ${errors.length} 個：\n${errors.join('\n')}`);
+      else alert(`✅ 成功載入資料夾內 ${ok} 個檔案！`);
+    });
   };
   input.click();
 }
