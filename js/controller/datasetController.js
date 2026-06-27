@@ -14,12 +14,6 @@ export function init(appState, datasetModel) {
   _appState = appState;
   _datasetModel = datasetModel;
 
-  // Event delegation for params cards (input change + collapse toggle)
-  // CVA 新增資料集按鈕
-  ['cva-desc-add-btn', 'cva-aff-add-btn'].forEach(btnId => {
-    document.getElementById(btnId)?.addEventListener('click', addEmptyCVADataset);
-  });
-
   // 當名稱欄位改動時，同步到另一個 tab 並更新 model
   ['cva-desc-name', 'cva-aff-name'].forEach(nameId => {
     document.getElementById(nameId)?.addEventListener('input', e => {
@@ -29,7 +23,7 @@ export function init(appState, datasetModel) {
       const id = _appState.getActiveId();
       if (id && _datasetModel.get(id)) {
         _datasetModel.get(id).name = e.target.value;
-        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams);
+        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams, addEmptyCVADataset);
       }
     });
   });
@@ -79,7 +73,7 @@ export function refreshViews() {
     _appState.getActiveId(),
     { onToggle: toggleDataset, onLoad: loadDatasetParams, onDelete: deleteDataset }
   );
-  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams);
+  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset);
   renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
   updateCharts(_datasetModel, getDisplayOptions());
 }

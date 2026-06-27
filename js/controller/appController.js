@@ -83,9 +83,6 @@ async function init() {
   );
 
   // 5. Dataset control buttons
-  document.getElementById('fabAddDataset')
-    ?.addEventListener('click', addEmptyCVADataset);
-
   document.querySelector('[data-action="select-all"]')
     ?.addEventListener('click', () => toggleAllDatasets(true));
   document.querySelector('[data-action="deselect-all"]')

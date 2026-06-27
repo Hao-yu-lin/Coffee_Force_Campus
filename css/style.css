@@ -598,6 +598,7 @@ h1 {
     vertical-align: middle;
 }
 .cva-mobile-ds-chip.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); }
+.cva-mobile-ds-chip.cva-mobile-ds-add { border-color: var(--primary); color: var(--primary); font-size: 1em; padding: 4px 12px; }
 .cva-mobile-ds-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── CVA Sections ───────────────────────────────── */
@@ -818,6 +819,8 @@ h1 {
     background: white;
 }
 .cva-ds-item.active { background: var(--primary-light); outline: 2px solid var(--primary); }
+.cva-ds-item.cva-ds-add { border-left-color: var(--primary); color: var(--primary); font-weight: 600; }
+.cva-ds-item.cva-ds-add:hover { background: var(--primary-light); }
 .cva-ds-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .cva-ds-name { flex: 1; word-break: break-word; color: var(--text); }
 
@@ -881,33 +884,6 @@ h1 {
     .affective-grid { grid-template-columns: 1fr; }
     .score-buttons { gap: 4px; }
     .score-btn { width: 32px; height: 32px; font-size: 0.82em; }
-}
-
-/* Floating action button (mobile only) */
-.fab-add {
-    display: none;
-    position: fixed;
-    bottom: 76px;
-    right: 20px;
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    background: var(--primary);
-    color: white;
-    font-size: 1.6em;
-    line-height: 1;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.5);
-    z-index: 999;
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-.fab-add:active {
-    transform: scale(0.92);
-    box-shadow: 0 2px 8px rgba(102,126,234,0.4);
-}
-@media (max-width: 640px) {
-    .fab-add { display: flex; align-items: center; justify-content: center; }
 }
 
 /* Very small screens: ≤ 380px */

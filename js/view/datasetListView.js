@@ -40,7 +40,7 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   });
 }
 
-export function renderCVADatasetPanel(datasets, activeId, onLoadCallback) {
+export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddCallback) {
   const targets = [
     { list: 'cva-desc-dataset-list', mobile: 'cva-desc-mobile-list' },
     { list: 'cva-aff-dataset-list',  mobile: 'cva-aff-mobile-list'  }
@@ -49,6 +49,13 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback) {
     const container = document.getElementById(list);
     if (container) {
       container.innerHTML = '';
+      if (onAddCallback) {
+        const addBtn = document.createElement('div');
+        addBtn.className = 'cva-ds-item cva-ds-add';
+        addBtn.onclick = onAddCallback;
+        addBtn.innerHTML = '<span style="font-size:1.2em;font-weight:bold;">＋</span><div class="cva-ds-name">新增資料集</div>';
+        container.appendChild(addBtn);
+      }
       Object.keys(datasets).reverse().forEach(id => {
         const ds = datasets[id];
         const isActive = id === activeId;
@@ -70,6 +77,13 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback) {
     const mobileContainer = document.getElementById(mobile);
     if (mobileContainer) {
       mobileContainer.innerHTML = '';
+      if (onAddCallback) {
+        const addChip = document.createElement('span');
+        addChip.className = 'cva-mobile-ds-chip cva-mobile-ds-add';
+        addChip.onclick = onAddCallback;
+        addChip.textContent = '＋';
+        mobileContainer.appendChild(addChip);
+      }
       Object.keys(datasets).reverse().forEach(id => {
         const ds = datasets[id];
         const isActive = id === activeId;
