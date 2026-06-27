@@ -40,7 +40,7 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   });
 }
 
-export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddCallback) {
+export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddCallback, onDeleteCallback) {
   const targets = [
     { list: 'cva-desc-dataset-list', mobile: 'cva-desc-mobile-list' },
     { list: 'cva-aff-dataset-list',  mobile: 'cva-aff-mobile-list'  }
@@ -71,6 +71,14 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddC
         name.textContent = ds.name;
         if (isActive) name.style.fontWeight = 'bold';
         div.appendChild(dot); div.appendChild(name);
+        if (onDeleteCallback) {
+          const del = document.createElement('button');
+          del.className = 'cva-ds-delete-btn';
+          del.innerHTML = '🗑';
+          del.title = '刪除';
+          del.onclick = e => { e.stopPropagation(); onDeleteCallback(id); };
+          div.appendChild(del);
+        }
         container.appendChild(div);
       });
     }
@@ -87,11 +95,24 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddC
       Object.keys(datasets).reverse().forEach(id => {
         const ds = datasets[id];
         const isActive = id === activeId;
+        const wrap = document.createElement('span');
+        wrap.style.position = 'relative';
+        wrap.style.display  = 'inline-flex';
+        wrap.style.alignItems = 'center';
         const chip = document.createElement('span');
         chip.className = `cva-mobile-ds-chip${isActive ? ' active' : ''}`;
         chip.onclick = () => onLoadCallback(id);
         chip.innerHTML = `<span class="cva-mobile-ds-dot" style="background:${ds.color}"></span>${ds.name}`;
-        mobileContainer.appendChild(chip);
+        wrap.appendChild(chip);
+        if (onDeleteCallback) {
+          const del = document.createElement('button');
+          del.className = 'cva-mobile-ds-delete-btn';
+          del.innerHTML = '✕';
+          del.title = '刪除';
+          del.onclick = e => { e.stopPropagation(); onDeleteCallback(id); };
+          wrap.appendChild(del);
+        }
+        mobileContainer.appendChild(wrap);
       });
     }
   });

@@ -79,10 +79,9 @@ function saveData() {
   const ids = Object.keys(allDatasets);
   if (ids.length === 0) { alert('⚠️ 沒有資料集可儲存'); return; }
 
-  ids.forEach(id => {
-    const ds   = allDatasets[id];
-    const name = (ds.name || 'brewing').replace(/[/\\?%*:|"<>]/g, '_');
-    const file = {
+  const buildFileObj = (id) => {
+    const ds = allDatasets[id];
+    return {
       version:          5,
       schema:           'per-dataset',
       timestamp:        now.toISOString(),
@@ -97,10 +96,31 @@ function saveData() {
       displayOptions:   displayOpts,
       distributionState: distState,
     };
-    downloadJSON(file, `${name}_${timestamp}.json`);
-  });
+  };
 
-  alert(`✅ 已儲存 ${ids.length} 個資料集！`);
+  if (ids.length === 1) {
+    const id   = ids[0];
+    const ds   = allDatasets[id];
+    const name = (ds.name || 'brewing').replace(/[/\\?%*:|"<>]/g, '_');
+    downloadJSON(buildFileObj(id), `${name}_${timestamp}.json`);
+    alert('✅ 已儲存 1 個資料集！');
+  } else {
+    // Bundle multiple datasets into one ZIP (mobile-safe single download)
+    const zip = new JSZip();
+    ids.forEach(id => {
+      const ds   = allDatasets[id];
+      const name = (ds.name || 'brewing').replace(/[/\\?%*:|"<>]/g, '_');
+      zip.file(`${name}_${timestamp}.json`, JSON.stringify(buildFileObj(id), null, 2));
+    });
+    zip.generateAsync({ type: 'blob' }).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href = url; a.download = `datasets_${timestamp}.zip`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      alert(`✅ 已將 ${ids.length} 個資料集打包為 datasets_${timestamp}.zip！`);
+    });
+  }
 }
 
 function importJSONData(data) {

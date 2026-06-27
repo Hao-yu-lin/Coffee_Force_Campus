@@ -23,7 +23,7 @@ export function init(appState, datasetModel) {
       const id = _appState.getActiveId();
       if (id && _datasetModel.get(id)) {
         _datasetModel.get(id).name = e.target.value;
-        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams, addEmptyCVADataset);
+        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams, addEmptyCVADataset, deleteDataset);
       }
     });
   });
@@ -73,7 +73,7 @@ export function refreshViews() {
     _appState.getActiveId(),
     { onToggle: toggleDataset, onLoad: loadDatasetParams, onDelete: deleteDataset }
   );
-  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset);
+  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset);
   renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
   updateCharts(_datasetModel, getDisplayOptions());
 }
@@ -107,12 +107,17 @@ export function addEmptyCVADataset() {
     _datasetModel.saveCVAState(prevId, collectDescriptiveState(), collectAffectiveState(_appState));
   }
 
-  const now = new Date();
-  const hh  = String(now.getHours()).padStart(2, '0');
-  const mi  = String(now.getMinutes()).padStart(2, '0');
+  const now  = new Date();
+  const hh   = String(now.getHours()).padStart(2, '0');
+  const mi   = String(now.getMinutes()).padStart(2, '0');
+  const base = `Default_${hh}${mi}`;
+  const existingNames = new Set(Object.values(_datasetModel.getAll()).map(d => d.name));
+  let dsName = base;
+  let counter = 2;
+  while (existingNames.has(dsName)) dsName = `${base}_${counter++}`;
   const id    = _appState.nextDatasetId();
   const color = getDatasetColor(_datasetModel.count());
-  const ds    = buildEmptyDataset(id, `Default_${hh}${mi}`, color);
+  const ds    = buildEmptyDataset(id, dsName, color);
 
   _datasetModel.add(id, ds);
   _appState.setActiveId(id);

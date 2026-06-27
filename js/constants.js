@@ -52,7 +52,7 @@ const CATA_DATA = {
 };
 
 const MOUTHFEEL_DATA = {
-    "Texture": ["Smooth","Silky","Juicy","Creamy","Coating","Sticky","Astringent","Rough","Puckering"],
+    "Texture": ["Smooth","Silky","Juicy","Creamy","Coating","Sticky","Astringent","Rough","Puckering","Dryness"],
     "Body":    ["Light","Medium","Heavy","Thin","Watery"],
     "Other":   ["Complex","Balanced","Delicate"]
 };
