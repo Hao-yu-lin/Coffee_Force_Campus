@@ -238,7 +238,7 @@ export function collectDescriptiveState() {
       if (mf.length) state[sec].mouthfeelCata = mf;
     }
   });
-  const areas = document.querySelectorAll('#tab-descriptive textarea');
+  const areas = document.querySelectorAll('#tab-descriptive .cva-notes');
   CVA_DESCRIPTIVE_SECTIONS.forEach((k, i) => {
     if (areas[i]) { if (!state[k]) state[k] = {}; state[k].notes = areas[i].value; }
   });
@@ -247,7 +247,7 @@ export function collectDescriptiveState() {
 
 export function collectAffectiveState(appState) {
   const state = { scores: appState.getAffectiveScores(), notes: {} };
-  const areas = document.querySelectorAll('#tab-affective textarea');
+  const areas = document.querySelectorAll('#tab-affective .cva-notes');
   AFFECTIVE_SECTIONS.forEach((sec, i) => { if (areas[i]) state.notes[sec] = areas[i].value; });
   return state;
 }
@@ -281,7 +281,7 @@ export function restoreDescriptiveState(state) {
     });
     updateSelectionSummary(sec);
   });
-  const areas = document.querySelectorAll('#tab-descriptive textarea');
+  const areas = document.querySelectorAll('#tab-descriptive .cva-notes');
   CVA_DESCRIPTIVE_SECTIONS.forEach((k, i) => {
     if (areas[i] && state[k]?.notes !== undefined) areas[i].value = state[k].notes;
   });
@@ -302,7 +302,7 @@ export function restoreAffectiveState(state, appState) {
     updateAffectiveScoreDisplay(state.scores, AFFECTIVE_SECTIONS);
   }
   if (state.notes) {
-    const areas = document.querySelectorAll('#tab-affective textarea');
+    const areas = document.querySelectorAll('#tab-affective .cva-notes');
     AFFECTIVE_SECTIONS.forEach((sec, i) => {
       if (areas[i] && state.notes[sec] !== undefined) areas[i].value = state.notes[sec];
     });
