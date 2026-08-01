@@ -20,7 +20,8 @@ export function buildAkirakokiDataset(id, name, color, pd) {
 
 export function buildRawDataset(id, name, color, parsed) {
   if (!parsed) return null;
-  const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp, adc1, adc2, extra } = parsed;
+  const { date, beanWeight, timeLabels, pWC, pWF, bC, bF, temp, adc1, adc2,
+          thermometer, ec, extra } = parsed;
   // Bloom duration: convert "MM:SS" → total seconds
   let bloomTime = '';
   if (extra?.beanBoilDuration) {
@@ -41,6 +42,9 @@ export function buildRawDataset(id, name, color, parsed) {
     time: timeLabels, weight: pWC, flow: pWF, bflow: bF, temp,
     ...(adc1 ? { adc1 } : {}),
     ...(adc2 ? { adc2 } : {}),
+    // Belka-merged series (present only after 資料整合)
+    ...(thermometer ? { thermometer } : {}),
+    ...(ec ? { ec } : {}),
     metrics: {
       'Pouring water cumulative(g)': pWC,
       'Pour water flow rate(g/s)':   pWF,

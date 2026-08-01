@@ -4,12 +4,14 @@ import { initCharts, updateCharts, getChartInstances } from '../view/chartView.j
 import { buildIntensityButtons, buildAffectiveGrid, initOverallSelects,
          initializeCATAPanels, initializeSCAPanels, toggleCVAPanel } from '../view/cvaView.js';
 import { bindTabButtons, toggleMobileDrawer } from '../view/tabView.js';
+import { DISPLAY_OPTION_IDS, getDisplayOptions } from '../view/displayOptions.js';
 
 import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets, addEmptyCVADataset } from './datasetController.js';
 import { init as initImportController } from './importController.js';
 import { init as initPersistController } from './persistController.js';
 import { init as initCvaController } from './cvaController.js';
 import { init as initDistributionController } from './distributionController.js';
+import { init as initMergeController } from './mergeController.js';
 
 const appState    = new AppState();
 const datasetModel = new DatasetModel();
@@ -69,16 +71,8 @@ async function init() {
   });
 
   // 5. Display option checkboxes
-  const getDisplayOpts = () => ({
-    showWeight:   document.getElementById('showWeight')?.checked   ?? true,
-    showFlow:     document.getElementById('showFlow')?.checked     ?? true,
-    showBrewFlow: document.getElementById('showBrewFlow')?.checked ?? true,
-    showTemp:     document.getElementById('showTemp')?.checked     ?? true,
-    showAdc1:     document.getElementById('showAdc1')?.checked     ?? true,
-    showAdc2:     document.getElementById('showAdc2')?.checked     ?? true,
-  });
-  const refreshCharts = () => updateCharts(datasetModel, getDisplayOpts());
-  ['showWeight','showFlow','showBrewFlow','showTemp','showAdc1','showAdc2'].forEach(id =>
+  const refreshCharts = () => updateCharts(datasetModel, getDisplayOptions());
+  DISPLAY_OPTION_IDS.forEach(id =>
     document.getElementById(id)?.addEventListener('change', refreshCharts)
   );
 
@@ -91,7 +85,7 @@ async function init() {
     ?.addEventListener('click', clearSelectedDatasets);
 
   // 6. Init charts
-  initCharts(datasetModel, getDisplayOpts);
+  initCharts(datasetModel, getDisplayOptions);
 
   // 7. Build CVA DOM
   buildIntensityButtons();
@@ -106,6 +100,7 @@ async function init() {
   initPersistController(appState, datasetModel);
   initCvaController(appState);
   initDistributionController();
+  initMergeController();
 
   // 10. CVA panel toggle buttons
   document.querySelectorAll('[data-toggle-panel]').forEach(btn =>

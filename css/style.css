@@ -82,6 +82,27 @@ h1 {
     width: 100%;
 }
 
+.record-time-row {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+.record-time-row input { flex: 1; min-width: 0; }
+
+.btn-now {
+    flex-shrink: 0;
+    padding: 0 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82em;
+    font-weight: 700;
+    touch-action: manipulation;
+}
+.btn-now:hover { background: var(--accent-dark); }
+
 .header-buttons {
     display: flex;
     gap: 8px;
@@ -441,6 +462,102 @@ h1 {
 .import-btn:hover { background: var(--accent-dark); }
 .folder-btn { background: var(--success); }
 .folder-btn:hover { background: #388E3C; }
+
+/* ── Belka × coffeeSecret 資料整合 ─────────────────── */
+.merge-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    color: white;
+    background: var(--secondary);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    margin-top: 8px;
+    font-size: 0.88em;
+    touch-action: manipulation;
+}
+.merge-btn:hover { background: #653f8c; }
+
+.belka-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 2000;
+}
+.belka-box {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.belka-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    color: var(--text);
+}
+.belka-close {
+    background: none;
+    border: none;
+    font-size: 1.1em;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 2px 6px;
+}
+.belka-close:hover { color: var(--danger); }
+.belka-body { padding: 16px; }
+.belka-field {
+    display: block;
+    margin-bottom: 14px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+.belka-field span { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text); }
+.belka-field input[type="file"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    font-size: 0.95em;
+}
+.belka-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.belka-log {
+    margin-top: 14px;
+    padding: 12px;
+    background: #2c3e50;
+    color: #ecf0f1;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.78em;
+    white-space: pre-wrap;
+    min-height: 90px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.belka-log .success { color: #2ecc71; }
+.belka-log .error   { color: #e74c3c; }
 
 .control-item {
     display: flex;

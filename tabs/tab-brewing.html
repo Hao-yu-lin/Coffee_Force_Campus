@@ -32,6 +32,7 @@
             <input type="file" id="fileInput" accept=".csv,.txt" style="display:none;" multiple>
             <button class="folder-btn" id="importFolderBtn">📂 載入資料夾</button>
             <input type="file" id="folderInput" webkitdirectory accept=".csv,.txt" style="display:none;" multiple>
+            <button class="merge-btn" id="belkaMergeBtn">🔬 Belka 濃度計整合</button>
             <button class="dataset-btn danger" style="width:100%;margin-top:8px;" data-action="clear-selected">🗑 清除選擇的資料集</button>
         </div>
         <div class="control-section">
@@ -47,6 +48,8 @@
                     <li><b>Temp</b>：水溫感測器讀值（℃）</li>
                     <li><b>下壺咖啡量 (下壺)</b>：下壺咖啡液累積重量，藍色面積</li>
                     <li><b>濾杯咖啡量 (濾杯)</b>：濾杯注水感測器讀值，橘色面積堆疊於下壺上方</li>
+                    <li><b>Thermometer (溫度計)</b>：Belka 濃度計實測水溫（℃），右軸實線；僅整合檔有</li>
+                    <li><b>EC (導電度)</b>：Belka 濃度計導電度讀值，左軸虛線；僅整合檔有</li>
                 </ul>
             </div>
             <div class="control-item">
@@ -72,6 +75,14 @@
             <div class="control-item">
                 <input type="checkbox" id="showAdc2" checked>
                 <label for="showAdc2">濾杯咖啡量 (濾杯)</label>
+            </div>
+            <div class="control-item">
+                <input type="checkbox" id="showThermometer" checked>
+                <label for="showThermometer">Thermometer (溫度計)</label>
+            </div>
+            <div class="control-item">
+                <input type="checkbox" id="showEC" checked>
+                <label for="showEC">EC (導電度)</label>
             </div>
         </div>
     </div>

@@ -99,3 +99,90 @@ describe('Integration — temp array is empty for all real files', () => {
         });
     }
 });
+
+/* ═══════════════════════════════════════════════════
+   Belka × coffeeSecret 整合檔 (real _整合版.txt exports)
+═══════════════════════════════════════════════════ */
+
+async function fetchText(relativePath) {
+    const res = await fetch(relativePath);
+    if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${relativePath}`);
+    return res.text();
+}
+
+// Ground truth read off the two merged files in ./data/
+const MERGED_FILES = [
+    { file: '0726溫度紀錄練習右(低高低)_整合版.txt', name: '溫度紀錄練習右',
+      len: 136, mergedLen: 135, thermo0: 30.2, ec0: 0 },
+    { file: '0726溫度紀錄(高高低)_整合版.txt',       name: '溫度紀錄練習高高低',
+      len: 136, mergedLen: 135, thermo0: 32.2, ec0: 0 },
+];
+
+/* ─── Suite 7: merged TXT parses into thermometer + ec ──────── */
+describe('Integration — merged TXT exposes thermometer / ec', () => {
+    for (const spec of MERGED_FILES) {
+        test(spec.name, async () => {
+            const txt = await fetchText(`../data/${encodeURIComponent(spec.file)}`);
+            const r = parseTxtBrewingLog(txt);
+            expect(r).toBeTruthy();
+            expect(r.name).toBe(spec.name);
+            expect(r.timeLabels).toHaveLength(spec.len);
+            expect(r.thermometer).toHaveLength(spec.mergedLen);
+            expect(r.ec).toHaveLength(spec.mergedLen);
+            expect(r.thermometer[0]).toBeCloseTo(spec.thermo0, 1);
+            expect(r.ec[0]).toBeCloseTo(spec.ec0, 1);
+        });
+    }
+});
+
+/* ─── Suite 8: merged series carry usable numbers ───────────── */
+describe('Integration — merged series are numeric and in range', () => {
+    for (const spec of MERGED_FILES) {
+        test(spec.name, async () => {
+            const txt = await fetchText(`../data/${encodeURIComponent(spec.file)}`);
+            const r = parseTxtBrewingLog(txt);
+            expect(r.thermometer.every(v => typeof v === 'number' && isFinite(v))).toBe(true);
+            expect(r.ec.every(v => typeof v === 'number' && isFinite(v))).toBe(true);
+            expect(Math.min(...r.thermometer)).toBeGreaterThan(0);
+            expect(Math.max(...r.thermometer)).toBeLessThan(110);
+            expect(Math.min(...r.ec)).toBeGreaterThan(-0.001);
+            expect(Math.max(...r.ec)).toBeLessThan(20);
+        });
+    }
+});
+
+/* ─── Suite 9: full merge round-trip on real data ───────────── */
+describe('Integration — re-merging a real file end to end', () => {
+    // Belka CSV covering the first minute; the rest is forward-filled.
+    const BELKA_CSV = [
+        'Time,Temp,EC',
+        '1.0s,31.00,0.10',
+        '30.0s,68.00,2.40',
+        '1:00.0,74.00,1.10',
+    ].join('\n');
+
+    for (const spec of MERGED_FILES) {
+        test(spec.name, async () => {
+            const txt    = await fetchText(`../data/${encodeURIComponent(spec.file)}`);
+            const points = parseBelkaCSV(BELKA_CSV);
+            expect(points).toHaveLength(3);
+
+            const merged = mergeBelkaIntoBrewingLog(JSON.parse(txt), points);
+            expect(merged).toBeTruthy();
+            // Re-merging aligns the series with the per-second arrays
+            expect(merged.length).toBe(spec.len);
+
+            const log = merged.root.json.brewingLog;
+            expect(log.EC).toHaveLength(spec.len);
+            expect(log.thermometer).toHaveLength(spec.len);
+            expect(log.thermometer[0]).toBe(31);      // exact hit at second 1
+            expect(log.thermometer[14]).toBeCloseTo(48.86, 2);  // second 15, interpolated
+            expect(log.thermometer[spec.len - 1]).toBe(74);    // forward-filled tail
+
+            // …and the result feeds straight back into the TXT parser
+            const reparsed = parseTxtBrewingLog(JSON.stringify(merged.root));
+            expect(reparsed.thermometer).toHaveLength(spec.len);
+            expect(reparsed.ec).toHaveLength(spec.len);
+        });
+    }
+});

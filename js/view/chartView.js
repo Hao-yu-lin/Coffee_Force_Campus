@@ -96,7 +96,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
       title: ctx => `時間: ${ctx[0].label} 秒`,
       label: ctx => {
         const label = ctx.dataset.label || '';
-        return label.replace(' - Weight', '').replace(' - Pour Water Flow', '').replace(' - Brew Flow', '').replace(' - Temp', '').replace(' - adc1 下壺', ' - 下壺').replace(' - adc2 濾杯', ' - 濾杯');
+        return label.replace(' - Weight', '').replace(' - Pour Water Flow', '').replace(' - Brew Flow', '').replace(' - Temp', '').replace(' - Thermometer', '').replace(' - EC', '').replace(' - adc1 下壺', ' - 下壺').replace(' - adc2 濾杯', ' - 濾杯');
       },
       afterLabel: ctx => {
         const dsId = ctx.dataset.datasetId;
@@ -124,6 +124,14 @@ export function initCharts(datasetModel, getCheckboxValues) {
         if (opts.showTemp && ds.temp?.[timeIdx] !== undefined) {
           const t = Number(ds.temp[timeIdx]);
           if (!isNaN(t)) lines.push(`  - tmp: ${t.toFixed(2)}`);
+        }
+        if (opts.showThermometer && ds.thermometer?.[timeIdx] != null) {
+          const th = Number(ds.thermometer[timeIdx]);
+          if (!isNaN(th)) lines.push(`  - 溫度計: ${th.toFixed(2)}`);
+        }
+        if (opts.showEC && ds.ec?.[timeIdx] != null) {
+          const ec = Number(ds.ec[timeIdx]);
+          if (!isNaN(ec)) lines.push(`  - EC: ${ec.toFixed(2)}`);
         }
         return lines.length ? lines : null;
       }
@@ -319,7 +327,6 @@ export function initCharts(datasetModel, getCheckboxValues) {
       const activeIdx = isTooltipPinned ? pinnedIndex : crosshairIndex;
       if (activeIdx === null || !chart.scales.y) return;
       const ctx    = chart.ctx;
-      const yScale = chart.scales.y;
       const xLeft  = chart.chartArea.left;
       const BH = 16, PH = 4;
 
@@ -327,6 +334,9 @@ export function initCharts(datasetModel, getCheckboxValues) {
         if (!chart.isDatasetVisible(i)) return;
         const value = ds.data?.[activeIdx];
         if (value == null || !isFinite(value)) return;
+        // Temperature series live on the right-hand axis — read the pixel from
+        // the scale the dataset is actually plotted against.
+        const yScale = chart.scales[ds.yAxisID] || chart.scales.y;
         const y = yScale.getPixelForValue(value);
         const color = ds.borderColor || '#555';
         ctx.save();
@@ -502,7 +512,9 @@ export function initCharts(datasetModel, getCheckboxValues) {
   document.getElementById('flowTempChart').addEventListener('mouseleave', handleChartMouseLeave);
 }
 
-export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow = true, showTemp, showAdc2 = true, showAdc1 = true }) {
+export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow = true, showTemp,
+                                             showAdc2 = true, showAdc1 = true,
+                                             showThermometer = true, showEC = true }) {
   if (!weightChart || !flowTempChart) return;
 
   const visible = datasetModel.getVisible();
@@ -536,8 +548,10 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow 
   // ── adc1 / adc2 stacked area ──────────────────────────────────────────────
   // Single dataset: adc1 = blue, adc2 = orange (classic solo colors)
   // Multiple datasets: all series share d.color, distinguished by line style & opacity
-  const ADC1_SOLO = '#1565C0';
-  const ADC2_SOLO = '#E65100';
+  const ADC1_SOLO   = '#1565C0';
+  const ADC2_SOLO   = '#E65100';
+  const THERMO_SOLO = '#C2185B';   // Belka thermometer (solo view)
+  const EC_SOLO     = '#00897B';   // Belka EC (solo view)
   const adcDatasets = [];
   visible.forEach(d => {
     const hasAdc1 = showAdc1 && d.adc1?.length;
@@ -628,15 +642,51 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow 
       borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
     });
   });
+  // Temperature series share the right-hand ℃ axis so they stay on-screen
+  // regardless of the flow-rate scale on the left.
   if (showTemp) visible.forEach(d => ftDatasets.push({
     datasetId: d.id, label: `${d.name} - Temp`, data: d.temp,
     borderColor: d.color, backgroundColor: `${d.color}20`,
-    borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
+    borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'yRight'
   }));
+  // Belka-merged series: thermometer (℃, right axis) and EC (left axis, 0–10 range)
+  if (showThermometer) visible.forEach(d => {
+    if (!d.thermometer?.length) return;
+    ftDatasets.push({
+      datasetId: d.id, label: `${d.name} - Thermometer`, data: d.thermometer,
+      borderColor: isSingleDs ? THERMO_SOLO : d.color, backgroundColor: `${d.color}20`,
+      borderWidth: 2, fill: false, tension: 0.1, pointRadius: 0,
+      spanGaps: true, yAxisID: 'yRight'
+    });
+  });
+  if (showEC) visible.forEach(d => {
+    if (!d.ec?.length) return;
+    ftDatasets.push({
+      datasetId: d.id, label: `${d.name} - EC`, data: d.ec,
+      borderColor: isSingleDs ? EC_SOLO : d.color, backgroundColor: `${d.color}20`,
+      borderWidth: 2, borderDash: [6, 3], fill: false, tension: 0.1, pointRadius: 0,
+      spanGaps: true, yAxisID: 'y'
+    });
+  });
+
   flowTempChart.data.labels   = labels;
   flowTempChart.data.datasets = ftDatasets;
   flowTempChart.options.scales.y.min = -5;
   flowTempChart.options.scales.y.max = (showBrewFlow && !showFlow) ? 10 : 15;
+
+  // Right axis carries ℃ only while a temperature series is drawn; otherwise it
+  // stays blank and merely reserves the gutter used by the hover badges.
+  const hasTempSeries = ftDatasets.some(d => d.yAxisID === 'yRight');
+  const yRight = flowTempChart.options.scales.yRight;
+  if (hasTempSeries) {
+    yRight.min = 0; yRight.max = 100;
+    yRight.ticks = { display: true };
+    yRight.title = { display: true, text: 'Temp (℃)' };
+  } else {
+    delete yRight.min; delete yRight.max;
+    yRight.ticks = { display: false };
+    yRight.title = { display: false };
+  }
   flowTempChart.update();
 }
 

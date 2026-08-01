@@ -2,6 +2,7 @@ import { renderDatasetList, renderCVADatasetPanel } from '../view/datasetListVie
 import { showDatasetBanner, hideDatasetBanner } from '../view/formView.js';
 import { renderParamsCards } from '../view/paramsView.js';
 import { updateCharts } from '../view/chartView.js';
+import { getDisplayOptions } from '../view/displayOptions.js';
 import { collectDescriptiveState, collectAffectiveState,
          clearDescriptiveState, clearAffectiveState,
          restoreDescriptiveState, restoreAffectiveState,
@@ -54,17 +55,6 @@ export function init(appState, datasetModel) {
       btn.textContent = card.classList.contains('collapsed') ? '▸' : '▾';
     }
   });
-}
-
-function getDisplayOptions() {
-  return {
-    showWeight:   document.getElementById('showWeight')?.checked   ?? true,
-    showFlow:     document.getElementById('showFlow')?.checked     ?? true,
-    showBrewFlow: document.getElementById('showBrewFlow')?.checked ?? true,
-    showTemp:     document.getElementById('showTemp')?.checked     ?? true,
-    showAdc1:     document.getElementById('showAdc1')?.checked     ?? true,
-    showAdc2:     document.getElementById('showAdc2')?.checked     ?? true,
-  };
 }
 
 export function refreshViews() {

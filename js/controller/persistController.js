@@ -1,5 +1,5 @@
 import { getFormValues, setFormValues } from '../view/formView.js';
-import { updateCharts } from '../view/chartView.js';
+import { getDisplayOptions, setDisplayOptions } from '../view/displayOptions.js';
 import { collectDescriptiveState, collectAffectiveState,
          restoreDescriptiveState, restoreAffectiveState,
          collectCVAHeaderState } from '../view/cvaView.js';
@@ -16,25 +16,8 @@ export function init(appState, datasetModel) {
   document.querySelector('.btn-save')?.addEventListener('click', saveData);
   document.querySelector('.btn-load')?.addEventListener('click', loadHistory);
   document.querySelector('.btn-load-folder')?.addEventListener('click', loadHistoryFolder);
-}
-
-function getDisplayOptions() {
-  return {
-    showWeight:   document.getElementById('showWeight')?.checked   ?? true,
-    showFlow:     document.getElementById('showFlow')?.checked     ?? true,
-    showBrewFlow: document.getElementById('showBrewFlow')?.checked ?? true,
-    showTemp:     document.getElementById('showTemp')?.checked     ?? true,
-    showAdc1:     document.getElementById('showAdc1')?.checked     ?? true,
-    showAdc2:     document.getElementById('showAdc2')?.checked     ?? true,
-  };
-}
-
-function setDisplayOptions(opts) {
-  if (!opts) return;
-  ['showWeight','showFlow','showBrewFlow','showTemp','showAdc1','showAdc2'].forEach(k => {
-    const el = document.getElementById(k);
-    if (el && opts[k] !== undefined) el.checked = opts[k];
-  });
+  document.getElementById('recordTimeNowBtn')?.addEventListener('click', () =>
+    setFormValues({ recordTime: toDatetimeLocalValue(new Date()) }));
 }
 
 function makeTimestamp(date) {
@@ -57,7 +40,10 @@ function downloadJSON(obj, filename) {
 
 function saveData() {
   const now = new Date();
-  setFormValues({ recordTime: now.toLocaleString('zh-TW') });
+  // 記錄時間 is the user's to choose — only stamp it when they left it blank.
+  const recordTimeEl = document.getElementById('recordTime');
+  if (recordTimeEl && !recordTimeEl.value)
+    setFormValues({ recordTime: toDatetimeLocalValue(now) });
 
   // Sync active dataset CVA state before saving
   const activeId = _appState.getActiveId();
@@ -131,13 +117,25 @@ function importJSONData(data) {
     _datasetModel.add(newId, ds);
     _datasetModel.setVisibility(newId, data.visibility ?? true);
     loadDatasetParams(newId);
+    // Header fields are written into every saved file — restore them, but skip
+    // blanks so loading an incomplete file can't wipe what the user typed.
+    if (data.formVals) {
+      const restored = {};
+      ['coffeeName', 'brewingTarget'].forEach(k => {
+        if (data.formVals[k]) restored[k] = data.formVals[k];
+      });
+      // Older files stored a zh-TW locale string the picker cannot accept
+      const rt = normalizeRecordTime(data.formVals.recordTime);
+      if (rt) restored.recordTime = rt;
+      setFormValues(restored);
+    }
     if (data.displayOptions)    setDisplayOptions(data.displayOptions);
     if (data.distributionState) loadDistributionState(data.distributionState);
 
   } else {
     if (data.name      !== undefined) setFormValues({ coffeeName:    data.name });
     if (data.target    !== undefined) setFormValues({ brewingTarget: data.target });
-    if (data.timestamp !== undefined) setFormValues({ recordTime:    data.timestamp });
+    if (data.timestamp !== undefined) setFormValues({ recordTime:    normalizeRecordTime(data.timestamp) });
 
     const visibility = data.dataset_visibility || {};
     let lastAddedId = null;

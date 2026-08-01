@@ -150,8 +150,11 @@ function getDatasetColor(index) {
  *   log.bsize       → Brewing flow rate(g/s)         (bF)
  *   log.temperature → Temperature(℃)                (temp)
  *
+ * Belka-merged files additionally carry per-second thermometer / EC series,
+ * returned as top-level `thermometer` and `ec` (null when absent).
+ *
  * Extra fields present in TXT but absent from CSV are stored under `extra`:
- *   thermometer, percent, coffeePowerWeight, ratio, scale,
+ *   thermometer, EC, percent, coffeePowerWeight, ratio, scale,
  *   beanRatioArray, totalBeanRatioArray,
  *   tds, extractionRate, waterPowderRatio, stars, fwjl,
  *   beanMoDouJi, beanKeDu, extraNote
@@ -184,6 +187,10 @@ function parseTxtBrewingLog(jsonText) {
         }
 
         const toNum = arr => (arr || []).map(v => (v == null ? 0 : Number(v)));
+        // Belka-merged series may contain gaps — keep null so charts break the
+        // line instead of dropping to a fake zero.
+        const toNumOrNull = arr => (arr || []).map(v => (v == null || v === '' || isNaN(Number(v)) ? null : Number(v)));
+        const hasNumbers  = arr => Array.isArray(arr) && arr.some(v => v != null && v !== '' && !isNaN(Number(v)));
 
         return {
             date:       data.id ? new Date(data.id).toLocaleDateString() : '',
@@ -199,9 +206,14 @@ function parseTxtBrewingLog(jsonText) {
             adc1: log.adc1 ? toNum(log.adc1) : null, // Brewing cumulative (coffee liquid)
             adc2: log.adc2 ? toNum(log.adc2) : null, // Second injection sensor raw values
 
+            // ── Belka-merged series (only present after 資料整合) ──────────
+            thermometer: hasNumbers(log.thermometer) ? toNumOrNull(log.thermometer) : null,
+            ec:          hasNumbers(log.EC)          ? toNumOrNull(log.EC)          : null,
+
             // ── Extra fields not present in CSV ──────────────────────────
             extra: {
                 thermometer:         log.thermometer,        // actual thermometer (vs scale sensor)
+                EC:                  log.EC,                 // Belka conductivity per second
                 percent:             log.percent,            // extraction percent per second
                 coffeePowerWeight:   log.coffeePowerWeight,  // coffee powder weight per second
                 ratio:               log.ratio,              // water/coffee ratio (numeric) per second
@@ -224,6 +236,186 @@ function parseTxtBrewingLog(jsonText) {
     } catch (_) {
         return null;
     }
+}
+
+/* ═══════════════════════════════════════════════════
+   記錄時間 — the header field is an <input type="datetime-local">,
+   which only accepts the exact form "YYYY-MM-DDTHH:mm".
+═══════════════════════════════════════════════════ */
+
+/**
+ * Format a Date as a datetime-local input value (local time, minute precision).
+ * @param {Date} date
+ * @returns {string} "YYYY-MM-DDTHH:mm", or '' for an invalid date
+ */
+function toDatetimeLocalValue(date) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+    const p = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}` +
+           `T${p(date.getHours())}:${p(date.getMinutes())}`;
+}
+
+/**
+ * Coerce a stored 記錄時間 into a datetime-local input value.
+ * Handles the three shapes that can appear in saved files:
+ *   1. already "YYYY-MM-DDTHH:mm[:ss]"        → truncated to minutes
+ *   2. legacy zh-TW string "2026/8/1 上午10:27:06" (written by older versions,
+ *      which the input would otherwise silently reject)
+ *   3. anything else Date can parse (e.g. an ISO timestamp)
+ * @param {string} value
+ * @returns {string} "YYYY-MM-DDTHH:mm", or '' when unparsable
+ */
+function normalizeRecordTime(value) {
+    if (!value) return '';
+    const s = String(value).trim();
+    const p = n => String(n).padStart(2, '0');
+
+    // Naive (timezone-less) form only — a "Z"/"+08:00" suffix means UTC-anchored,
+    // which must go through Date so it lands on the right local time.
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}T${iso[4]}:${iso[5]}`;
+
+    const zh = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s*(上午|下午)?\s*(\d{1,2}):(\d{2})/);
+    if (zh) {
+        let h = parseInt(zh[5], 10);
+        if (zh[4] === '上午' && h === 12) h = 0;
+        if (zh[4] === '下午' && h < 12)   h += 12;
+        return `${zh[1]}-${p(zh[2])}-${p(zh[3])}T${p(h)}:${zh[6]}`;
+    }
+
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? '' : toDatetimeLocalValue(d);
+}
+
+/* ═══════════════════════════════════════════════════
+   BELKA × coffeeSecret 資料整合
+   Merges a Belka refractometer CSV (Time / Temp / EC) into a coffeeSecret
+   brewing-log TXT: the CSV is resampled to 1 Hz, written over
+   brewingLog.thermometer and added as brewingLog.EC.
+═══════════════════════════════════════════════════ */
+
+/**
+ * Parse a Belka time cell into seconds.
+ * Accepts "59.0s", "59", "1:01.0" (M:SS).
+ * @param {string} timeStr
+ * @returns {number} seconds, or NaN when unparsable
+ */
+function parseBelkaTime(timeStr) {
+    if (timeStr == null) return NaN;
+    const clean = String(timeStr).trim().replace(/s$/i, '').trim();
+    if (!clean) return NaN;
+    if (clean.includes(':')) {
+        const [mStr, sStr] = clean.split(':');
+        const m = parseFloat(mStr), s = parseFloat(sStr);
+        if (isNaN(m) || isNaN(s)) return NaN;
+        return m * 60 + s;
+    }
+    const n = parseFloat(clean);
+    return isNaN(n) ? NaN : n;
+}
+
+/**
+ * Parse a Belka refractometer CSV into measurement points.
+ * The header row must contain Time, Temp and EC columns (case-insensitive).
+ * @param {string} text - raw CSV text
+ * @returns {{ sec: number, temp: number, ec: number }[] | null} null when the
+ *          required columns are missing or no row is usable
+ */
+function parseBelkaCSV(text) {
+    if (!text) return null;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length < 2) return null;
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const timeIdx = headers.indexOf('time');
+    const tempIdx = headers.indexOf('temp');
+    const ecIdx   = headers.indexOf('ec');
+    if (timeIdx === -1 || tempIdx === -1 || ecIdx === -1) return null;
+
+    const maxIdx = Math.max(timeIdx, tempIdx, ecIdx);
+    const points = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length <= maxIdx) continue;
+        const sec  = Math.round(parseBelkaTime(cols[timeIdx]));
+        const temp = parseFloat(cols[tempIdx]);
+        const ec   = parseFloat(cols[ecIdx]);
+        if (!isNaN(sec) && !isNaN(temp) && !isNaN(ec)) points.push({ sec, temp, ec });
+    }
+    return points.length ? points : null;
+}
+
+/**
+ * Resample Belka points onto a 1-second grid covering seconds 1…maxSec.
+ * Gaps between two known points are linearly interpolated; the head is
+ * back-filled and the tail forward-filled from the nearest known point.
+ * Duplicate seconds keep the first occurrence.
+ * @param {{ sec: number, temp: number, ec: number }[]} points
+ * @param {number} maxSec
+ * @returns {{ temp: number[], ec: number[] }} arrays of length maxSec (index 0 = second 1)
+ */
+function interpolateBelkaPoints(points, maxSec) {
+    const temp = [], ec = [];
+    if (!points || !points.length || !(maxSec > 0)) return { temp, ec };
+
+    const bySec = new Map();
+    [...points].sort((a, b) => a.sec - b.sec)
+               .forEach(p => { if (!bySec.has(p.sec)) bySec.set(p.sec, p); });
+    const known = [...bySec.values()];
+
+    const round2 = v => Number(v.toFixed(2));
+    let i = 0;   // index of the last known point at or before `s`
+    for (let s = 1; s <= maxSec; s++) {
+        while (i + 1 < known.length && known[i + 1].sec <= s) i++;
+        const cur  = known[i];
+        const next = known[i + 1];
+        let t, e;
+        if (cur.sec === s || cur.sec > s || !next) {
+            // exact hit, head back-fill, or tail forward-fill
+            t = cur.temp; e = cur.ec;
+        } else {
+            const ratio = (s - cur.sec) / (next.sec - cur.sec);
+            t = cur.temp + (next.temp - cur.temp) * ratio;
+            e = cur.ec   + (next.ec   - cur.ec)   * ratio;
+        }
+        temp.push(round2(t));
+        ec.push(round2(e));
+    }
+    return { temp, ec };
+}
+
+/**
+ * Merge Belka points into a parsed coffeeSecret brewing-log object.
+ * Overwrites brewingLog.thermometer and adds brewingLog.EC, resampled to the
+ * length of the existing per-second arrays so every series stays aligned.
+ * NOTE: mutates `root` in place (and returns it) so the original wrapper —
+ * e.g. the outer { id, json } envelope — is preserved on re-export.
+ * @param {object} root - parsed JSON, either { id, json: {...} } or bare
+ * @param {{ sec: number, temp: number, ec: number }[]} points
+ * @returns {{ root: object, length: number } | null} null when unmergeable
+ */
+function mergeBelkaIntoBrewingLog(root, points) {
+    if (!root || typeof root !== 'object') return null;
+    const meta = root.json ? root.json : root;
+    const log  = meta && meta.brewingLog;
+    if (!log) return null;
+
+    // Align with the existing per-second arrays; totalDuration is only a fallback
+    // because it can be one shorter than the recorded arrays.
+    const refLen = Math.max(
+        (log.temperature || []).length,
+        (log.adc1        || []).length,
+        (log.total       || []).length
+    );
+    const duration = refLen || Number(meta.totalDuration) || 0;
+    if (!duration) return null;
+
+    const { temp, ec } = interpolateBelkaPoints(points, duration);
+    if (!temp.length) return null;
+
+    log.thermometer = temp;
+    log.EC = ec;
+    return { root, length: temp.length };
 }
 
 /**
