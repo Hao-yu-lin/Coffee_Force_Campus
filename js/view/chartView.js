@@ -92,47 +92,29 @@ export function initCharts(datasetModel, getCheckboxValues) {
   const commonTooltip = {
     enabled: false,
     external: externalTooltipHandler,
+    // One entry per dataset — afterLabel already lists every series for it,
+    // so without this the whole block repeats once per drawn series.
+    filter: (item, index, array) =>
+      array.findIndex(i => i.dataset.datasetId === item.dataset.datasetId) === index,
     callbacks: {
       title: ctx => `時間: ${ctx[0].label} 秒`,
-      label: ctx => {
-        const label = ctx.dataset.label || '';
-        return label.replace(' - Weight', '').replace(' - Pour Water Flow', '').replace(' - Brew Flow', '').replace(' - Temp', '').replace(' - Thermometer', '').replace(' - EC', '').replace(' - adc1 下壺', ' - 下壺').replace(' - adc2 濾杯', ' - 濾杯');
-      },
+      label: ctx => ctx.dataset.dsName || ctx.dataset.label || '',
       afterLabel: ctx => {
-        const dsId = ctx.dataset.datasetId;
-        const ds = datasetModel.get(dsId);
+        const ds = datasetModel.get(ctx.dataset.datasetId);
         if (!ds) return null;
         const timeIdx = ctx.dataIndex;
         const opts = getCheckboxValues();
         const lines = [];
-        if (opts.showWeight && ds.weight?.[timeIdx] !== undefined) {
-          const w = Number(ds.weight[timeIdx]);
-          if (!isNaN(w)) {
-            lines.push(`  - weight: ${w.toFixed(2)}`);
+        Object.values(SERIES_TYPES).forEach(spec => {
+          if (!opts[spec.option]) return;
+          const v = ds[spec.field]?.[timeIdx];
+          if (v == null || isNaN(Number(v))) return;
+          lines.push(`  - ${spec.label} (${spec.zh}): ${Number(v).toFixed(2)}`);
+          if (spec.field === 'weight') {
             const bw = parseFloat(ds.beanWeight);
-            if (bw && isFinite(bw)) lines.push(`  - 水粉比: ${(w / bw).toFixed(2)}`);
+            if (bw && isFinite(bw)) lines.push(`  - 水粉比: ${(Number(v) / bw).toFixed(2)}`);
           }
-        }
-        if (opts.showFlow && ds.flow?.[timeIdx] !== undefined) {
-          const f = Number(ds.flow[timeIdx]);
-          if (!isNaN(f)) lines.push(`  - pour water flow: ${f.toFixed(2)}`);
-        }
-        if (opts.showBrewFlow && ds.bflow?.[timeIdx] !== undefined) {
-          const bf = Number(ds.bflow[timeIdx]);
-          if (!isNaN(bf)) lines.push(`  - brew flow: ${bf.toFixed(2)}`);
-        }
-        if (opts.showTemp && ds.temp?.[timeIdx] !== undefined) {
-          const t = Number(ds.temp[timeIdx]);
-          if (!isNaN(t)) lines.push(`  - tmp: ${t.toFixed(2)}`);
-        }
-        if (opts.showThermometer && ds.thermometer?.[timeIdx] != null) {
-          const th = Number(ds.thermometer[timeIdx]);
-          if (!isNaN(th)) lines.push(`  - 溫度計: ${th.toFixed(2)}`);
-        }
-        if (opts.showEC && ds.ec?.[timeIdx] != null) {
-          const ec = Number(ds.ec[timeIdx]);
-          if (!isNaN(ec)) lines.push(`  - EC: ${ec.toFixed(2)}`);
-        }
+        });
         return lines.length ? lines : null;
       }
     }
@@ -236,8 +218,8 @@ export function initCharts(datasetModel, getCheckboxValues) {
         ctx.fillText(text, bx + PH, y);
       };
 
-      // First pass: collect values per dataset type for right-side stacking
-      // Order: adc1, adc2 at their y positions; weight separately, adc2 right badge below weight
+      // First pass: collect values per series type for right-side stacking.
+      // Weight-C/Weight-D get badges at their own y; Weight-W separately.
       const weightEntries = [];   // { value, y, bw }
       const adc2Entries   = [];   // { value, y }
 
@@ -245,7 +227,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
         if (!chart.isDatasetVisible(i)) return;
         const value = ds.data?.[activeIdx];
         if (value == null || !isFinite(value)) return;
-        const isWeight = !ds.label?.includes('adc1') && !ds.label?.includes('adc2');
+        const isWeight = ds.seriesKey === 'weight';
         const bw = parseFloat(ds.beanWeight) ||
           parseFloat(datasetModel.get?.(ds.datasetId)?.beanWeight) || 0;
         const y = yScale.getPixelForValue(value);
@@ -269,21 +251,19 @@ export function initCharts(datasetModel, getCheckboxValues) {
 
         if (isWeight) {
           weightEntries.push({ value, y, bw, badgeColor });
-        } else if (ds.label?.includes('adc2')) {
-          // Use rawData for badge value when adc2 is stacked on top of adc1
-          const rawValue = ds.rawData ? (ds.rawData[activeIdx] ?? value) : value;
-          adc2Entries.push({ value: rawValue, y, badgeColor, isStacked: !!ds.isStacked });
+        } else if (ds.seriesKey === 'adc2') {
+          adc2Entries.push({ value, y, badgeColor });
         } else {
-          // adc1 — right badge at actual y position
+          // Weight-C — right badge at actual y position
           if (bw && isFinite(bw)) drawBadge((value / bw).toFixed(1), labelAreaLeft, y, badgeColor, false);
         }
 
         ctx.restore();
       });
 
-      // Check if any adc1 dataset is visible (determines adc2 right-badge placement)
+      // Whether Weight-C is visible determines where the Weight-D badge sits
       const hasVisibleAdc1 = chart.data.datasets.some((ds, i) =>
-        chart.isDatasetVisible(i) && ds.label?.includes('adc1')
+        chart.isDatasetVisible(i) && ds.seriesKey === 'adc1'
       );
 
       // Right-axis: weight badges at their y positions
@@ -408,53 +388,66 @@ export function initCharts(datasetModel, getCheckboxValues) {
     if (tooltipEl) tooltipEl.innerHTML = '<div style="color:#888;text-align:center;margin-top:20px;">游標移至圖表以顯示詳細數據</div>';
   };
 
-  // Draws a color legend for adc1 / adc2 in the top-right of the weight chart
-  const adcLegendPlugin = {
-    id: 'adcLegend',
+  // Top-right legend: one entry per data type on this chart, drawn with that
+  // type's line style. Colour is reserved for dataset identity, so the samples
+  // are neutral — the style is what tells the types apart.
+  const seriesLegendPlugin = {
+    id: 'seriesLegend',
     afterDraw: chart => {
-      const adcDs = chart.data.datasets.filter(ds =>
-        ds.label?.includes('adc1') || ds.label?.includes('adc2')
-      );
-      if (!adcDs.length) return;
+      const seen = new Map();
+      chart.data.datasets.forEach((ds, i) => {
+        if (!chart.isDatasetVisible(i) || !ds.seriesKey) return;
+        if (!seen.has(ds.seriesKey)) seen.set(ds.seriesKey, ds);
+      });
+      if (!seen.size) return;
 
       const ctx  = chart.ctx;
       const area = chart.chartArea;
-      const lineW = 20, ph = 6, bh = 18, gap = 4;
+      const lineW = 18, ph = 5, bh = 16, gap = 4, rowGap = 3;
       ctx.save();
       ctx.font = 'bold 11px sans-serif';
 
-      let x = area.right - ph;
+      // Lay entries out right-to-left, wrapping onto a new row when needed
+      const entries = [...seen.values()].map(ds => {
+        const label = ds.seriesLabel || ds.seriesKey;
+        return { ds, label, width: lineW + gap + ctx.measureText(label).width + ph * 2 };
+      });
+
+      const maxRowW = area.right - area.left;
+      const rows = [[]];
+      let rowW = 0;
+      entries.forEach(e => {
+        if (rowW + e.width + gap > maxRowW && rows[rows.length - 1].length) {
+          rows.push([]); rowW = 0;
+        }
+        rows[rows.length - 1].push(e);
+        rowW += e.width + gap;
+      });
+
       let y = area.top + ph;
+      rows.forEach(row => {
+        let x = area.right - ph;
+        [...row].reverse().forEach(({ ds, label, width }) => {
+          x -= width;
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillRect(x, y, width, bh);
 
-      // Draw entries right-aligned, newest first
-      [...adcDs].reverse().forEach(ds => {
-        const label = ds.label?.includes('adc1') ? '下壺' : '濾杯';
-        const tw = ctx.measureText(label).width;
-        const entryW = lineW + gap + tw + ph * 2;
-        x -= entryW;
+          ctx.beginPath();
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = ds.borderWidth || 2;
+          ctx.setLineDash(ds.borderDash?.length ? ds.borderDash : []);
+          ctx.moveTo(x + ph, y + bh / 2);
+          ctx.lineTo(x + ph + lineW, y + bh / 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        // Background chip
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillRect(x, y, entryW, bh);
-
-        // Color line sample (dashed for adc1)
-        ctx.beginPath();
-        ctx.strokeStyle = ds.borderColor;
-        ctx.lineWidth = ds.borderWidth || 2;
-        if (ds.borderDash?.length) ctx.setLineDash(ds.borderDash);
-        else ctx.setLineDash([]);
-        ctx.moveTo(x + ph, y + bh / 2);
-        ctx.lineTo(x + ph + lineW, y + bh / 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Label text
-        ctx.fillStyle = '#333';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(label, x + ph + lineW + gap, y + bh / 2);
-
-        x -= gap;
+          ctx.fillStyle = '#333';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, x + ph + lineW + gap, y + bh / 2);
+          x -= gap;
+        });
+        y += bh + rowGap;
       });
 
       ctx.restore();
@@ -464,7 +457,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
   weightChart = new Chart(document.getElementById('weightChart').getContext('2d'), {
     type: 'line',
     data: { labels: [], datasets: [] },
-    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, horizontalRatioLinePlugin, adcLegendPlugin],
+    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, horizontalRatioLinePlugin, seriesLegendPlugin],
     options: {
       events: ['click'],
       responsive: true, maintainAspectRatio: false,
@@ -488,7 +481,7 @@ export function initCharts(datasetModel, getCheckboxValues) {
   flowTempChart = new Chart(document.getElementById('flowTempChart').getContext('2d'), {
     type: 'line',
     data: { labels: [], datasets: [] },
-    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, flowLeftBadgePlugin],
+    plugins: [verticalHoverLinePlugin, freezeInteractionPlugin, pinnedMarkerPlugin, flowLeftBadgePlugin, seriesLegendPlugin],
     options: {
       events: ['click'],
       responsive: true, maintainAspectRatio: false,
@@ -512,10 +505,14 @@ export function initCharts(datasetModel, getCheckboxValues) {
   document.getElementById('flowTempChart').addEventListener('mouseleave', handleChartMouseLeave);
 }
 
-export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow = true, showTemp,
-                                             showAdc2 = true, showAdc1 = true,
-                                             showThermometer = true, showEC = true }) {
+export function updateCharts(datasetModel, displayOptions = {}) {
   if (!weightChart || !flowTempChart) return;
+
+  // Any option left unspecified defaults to visible
+  const opts = {};
+  Object.values(SERIES_TYPES).forEach(spec => {
+    opts[spec.option] = displayOptions[spec.option] ?? true;
+  });
 
   const visible = datasetModel.getVisible();
 
@@ -533,153 +530,86 @@ export function updateCharts(datasetModel, { showWeight, showFlow, showBrewFlow 
   weightChart.options.scales.x.min = 0; weightChart.options.scales.x.max = maxTime;
   flowTempChart.options.scales.x.min = 0; flowTempChart.options.scales.x.max = maxTime;
 
-  weightChart.data.labels = labels;
-
-  const isSingleDs = visible.length === 1;
-  const weightDatasets = showWeight ? visible.map(d => ({
-    datasetId: d.id, label: `${d.name} - Weight`, data: d.weight,
-    beanWeight: parseFloat(d.beanWeight) || null,
-    borderColor: isSingleDs ? '#222' : d.color,
-    backgroundColor: isSingleDs ? 'rgba(0,0,0,0.08)' : d.color + '18',
-    borderWidth: 2.5, fill: false, tension: 0.1, pointRadius: 0,
-    yAxisID: 'y'
-  })) : [];
-
-  // ── adc1 / adc2 stacked area ──────────────────────────────────────────────
-  // Single dataset: adc1 = blue, adc2 = orange (classic solo colors)
-  // Multiple datasets: all series share d.color, distinguished by line style & opacity
-  const ADC1_SOLO   = '#1565C0';
-  const ADC2_SOLO   = '#E65100';
-  const THERMO_SOLO = '#C2185B';   // Belka thermometer (solo view)
-  const EC_SOLO     = '#00897B';   // Belka EC (solo view)
-  const adcDatasets = [];
-  visible.forEach(d => {
-    const hasAdc1 = showAdc1 && d.adc1?.length;
-    const hasAdc2 = showAdc2 && d.adc2?.length;
-    const c1 = isSingleDs ? ADC1_SOLO : d.color;
-    const c2 = isSingleDs ? ADC2_SOLO : d.color;
-
-    if (hasAdc1) {
-      adcDatasets.push({
-        datasetId: d.id, label: `${d.name} - adc1 下壺`, data: d.adc1,
-        borderColor: c1,
-        backgroundColor: c1 + '40',
-        borderWidth: 2,
-        borderDash: [6, 3],          // 下壺 always dashed
-        fill: 'origin', tension: 0.2, pointRadius: 0,
-        yAxisID: 'y', order: 2
+  // Build one Chart.js dataset per (dataset × series type).
+  // Colour = which brew it is; line style/width = which measurement it is.
+  const buildSeries = (keys) => {
+    const out = [];
+    keys.forEach(key => {
+      const spec = SERIES_TYPES[key];
+      if (!spec || !opts[spec.option]) return;
+      visible.forEach(d => {
+        const data = d[spec.field];
+        if (!data?.length) return;
+        out.push({
+          datasetId: d.id,
+          dsName:    d.name,
+          seriesKey: key,
+          seriesLabel: spec.label,
+          label: `${d.name} - ${spec.label}`,
+          data,
+          beanWeight: parseFloat(d.beanWeight) || null,
+          borderColor: d.color,
+          backgroundColor: spec.fill ? `${d.color}22` : `${d.color}20`,
+          borderWidth: spec.width,
+          borderDash: spec.dash,
+          fill: spec.fill ? 'origin' : false,
+          tension: 0.1,
+          pointRadius: 0,
+          spanGaps: true,
+          yAxisID: spec.axis
+        });
       });
-    }
-    if (hasAdc2) {
-      // Stacked: adc2 data = adc1[i] + adc2[i] so top edge = total; fill down to adc1 line
-      const isStacked = !!(hasAdc1 && d.adc1);
-      const stackedData = isStacked
-        ? d.adc2.map((v, i) => (d.adc1[i] ?? 0) + v)
-        : d.adc2;
-      adcDatasets.push({
-        datasetId: d.id, label: `${d.name} - adc2 濾杯`, data: stackedData,
-        // rawData: raw adc2 values for badge calculation (stacked data includes adc1 offset)
-        rawData: isStacked ? d.adc2 : null,
-        isStacked,
-        borderColor: isSingleDs ? c2 + '99' : d.color + '99',
-        backgroundColor: isSingleDs ? c2 + '33' : d.color + '22',
-        borderWidth: 1.5,
-        fill: isStacked ? '-1' : 'origin',
-        tension: 0.2, pointRadius: 0,
-        yAxisID: 'y', order: 3
-      });
-    }
-  });
+    });
+    return out;
+  };
 
-  weightChart.data.datasets = [...adcDatasets, ...weightDatasets];
+  const axisValues = (datasets, axisId) =>
+    datasets.filter(ds => ds.yAxisID === axisId).flatMap(ds => ds.data || []);
 
-  const allW = (showWeight ? visible.flatMap(d => d.weight || []) : [])
-    .filter(v => typeof v === 'number' && isFinite(v));
-  weightChart.options.scales.y.min = 0;
-  let yMax;
-  if (allW.length >= 4) {
-    const sortedW = [...allW].sort((a, b) => a - b);
-    const p99 = sortedW[Math.min(sortedW.length - 1, Math.floor(sortedW.length * 0.99))];
-    yMax = p99 * 1.08;
-    weightChart.options.scales.y.max = yMax;
-  } else {
-    delete weightChart.options.scales.y.max;
-    yMax = null;
-  }
+  const applyRange = (scale, values) => {
+    const range = fitAxisRange(values, AXIS_FILL_RATIO);
+    if (range) { scale.min = range.min; scale.max = range.max; }
+    else { delete scale.min; delete scale.max; }
+    return range;
+  };
 
-  // yRatio always displayed to keep right axis area reserved for hover badges
+  // ── Weight chart ──────────────────────────────────────────────────────────
+  const weightDatasets = buildSeries(WEIGHT_CHART_SERIES);
+  weightChart.data.labels   = labels;
+  weightChart.data.datasets = weightDatasets;
+
+  const wRange = applyRange(weightChart.options.scales.y, axisValues(weightDatasets, 'y'));
+
+  // yRatio stays displayed to reserve the gutter the hover badges draw into
   const beanWeights = visible.map(d => parseFloat(d.beanWeight)).filter(bw => bw > 0 && isFinite(bw));
-  weightChart.options.scales.yRatio.display = true;
-  const yMaxForRatio = yMax || (visible.flatMap(d => [...(d.adc1||[]), ...(d.adc2||[]), ...(d.weight||[])]).filter(v => isFinite(v)).reduce((a,b)=>Math.max(a,b), 0)) || null;
-  if (beanWeights.length && yMaxForRatio) {
+  const yRatio = weightChart.options.scales.yRatio;
+  yRatio.display = true;
+  if (beanWeights.length && wRange) {
     const minBW = Math.min(...beanWeights);
-    weightChart.options.scales.yRatio.min = 0;
-    weightChart.options.scales.yRatio.max = yMaxForRatio / minBW;
-    weightChart.options.scales.yRatio.ticks = { display: true };
-    weightChart.options.scales.yRatio.title = { display: true, text: '水粉比' };
+    yRatio.min = wRange.min / minBW;
+    yRatio.max = wRange.max / minBW;
+    yRatio.ticks = { display: true };
+    yRatio.title = { display: true, text: '水粉比' };
   } else {
-    delete weightChart.options.scales.yRatio.min;
-    delete weightChart.options.scales.yRatio.max;
-    weightChart.options.scales.yRatio.ticks = { display: false };
-    weightChart.options.scales.yRatio.title = { display: false };
+    delete yRatio.min; delete yRatio.max;
+    yRatio.ticks = { display: false };
+    yRatio.title = { display: false };
   }
-
   weightChart.update();
 
-  const ftDatasets = [];
-  if (showFlow) visible.forEach(d => {
-    ftDatasets.push({
-      datasetId: d.id, label: `${d.name} - Pour Water Flow`, data: d.flow,
-      borderColor: d.color, backgroundColor: `${d.color}20`,
-      borderWidth: 1.5, fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
-    });
-  });
-  if (showBrewFlow) visible.forEach(d => {
-    if (!d.bflow?.length) return;
-    ftDatasets.push({
-      datasetId: d.id, label: `${d.name} - Brew Flow`, data: d.bflow,
-      borderColor: d.color, backgroundColor: `${d.color}20`,
-      borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'y'
-    });
-  });
-  // Temperature series share the right-hand ℃ axis so they stay on-screen
-  // regardless of the flow-rate scale on the left.
-  if (showTemp) visible.forEach(d => ftDatasets.push({
-    datasetId: d.id, label: `${d.name} - Temp`, data: d.temp,
-    borderColor: d.color, backgroundColor: `${d.color}20`,
-    borderWidth: 1.5, borderDash: [2, 3], fill: false, tension: 0.1, pointRadius: 0, yAxisID: 'yRight'
-  }));
-  // Belka-merged series: thermometer (℃, right axis) and EC (left axis, 0–10 range)
-  if (showThermometer) visible.forEach(d => {
-    if (!d.thermometer?.length) return;
-    ftDatasets.push({
-      datasetId: d.id, label: `${d.name} - Thermometer`, data: d.thermometer,
-      borderColor: isSingleDs ? THERMO_SOLO : d.color, backgroundColor: `${d.color}20`,
-      borderWidth: 2, fill: false, tension: 0.1, pointRadius: 0,
-      spanGaps: true, yAxisID: 'yRight'
-    });
-  });
-  if (showEC) visible.forEach(d => {
-    if (!d.ec?.length) return;
-    ftDatasets.push({
-      datasetId: d.id, label: `${d.name} - EC`, data: d.ec,
-      borderColor: isSingleDs ? EC_SOLO : d.color, backgroundColor: `${d.color}20`,
-      borderWidth: 2, borderDash: [6, 3], fill: false, tension: 0.1, pointRadius: 0,
-      spanGaps: true, yAxisID: 'y'
-    });
-  });
-
+  // ── Flow / temperature chart ──────────────────────────────────────────────
+  const ftDatasets = buildSeries(FLOW_CHART_SERIES);
   flowTempChart.data.labels   = labels;
   flowTempChart.data.datasets = ftDatasets;
-  flowTempChart.options.scales.y.min = -5;
-  flowTempChart.options.scales.y.max = (showBrewFlow && !showFlow) ? 10 : 15;
+
+  applyRange(flowTempChart.options.scales.y, axisValues(ftDatasets, 'y'));
 
   // Right axis carries ℃ only while a temperature series is drawn; otherwise it
   // stays blank and merely reserves the gutter used by the hover badges.
-  const hasTempSeries = ftDatasets.some(d => d.yAxisID === 'yRight');
+  const tempValues = axisValues(ftDatasets, 'yRight');
   const yRight = flowTempChart.options.scales.yRight;
-  if (hasTempSeries) {
-    yRight.min = 0; yRight.max = 100;
+  if (tempValues.length) {
+    applyRange(yRight, tempValues);
     yRight.ticks = { display: true };
     yRight.title = { display: true, text: 'Temp (℃)' };
   } else {

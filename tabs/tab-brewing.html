@@ -42,47 +42,50 @@
             </div>
             <div class="display-help-popup" id="displayHelpPopup">
                 <ul>
-                    <li><b>咖啡注水量 (Weight)</b>：上壺累積注水量曲線（g），黑色實線</li>
-                    <li><b>Pour Water Flow</b>：每秒注水流速（g/s），實線顯示</li>
-                    <li><b>Brew Flow</b>：每秒流入下壺的流速（g/s），虛線顯示</li>
-                    <li><b>Temp</b>：水溫感測器讀值（℃）</li>
-                    <li><b>下壺咖啡量 (下壺)</b>：下壺咖啡液累積重量，藍色面積</li>
-                    <li><b>濾杯咖啡量 (濾杯)</b>：濾杯注水感測器讀值，橘色面積堆疊於下壺上方</li>
-                    <li><b>Thermometer (溫度計)</b>：Belka 濃度計實測水溫（℃），右軸實線；僅整合檔有</li>
-                    <li><b>EC (導電度)</b>：Belka 濃度計導電度讀值，左軸虛線；僅整合檔有</li>
+                    <li><b>顏色</b>代表資料集，<b>線型</b>代表資料類型；圖例在各圖右上角</li>
+                    <li><b>Weight-W (總注水量)</b>：上壺累積注水量（g），實線</li>
+                    <li><b>Weight-C (咖啡液量)</b>：下壺咖啡液累積重量（g），長虛線 + 填色</li>
+                    <li><b>Weight-D (濾杯水量)</b>：濾杯注水感測器讀值（g），短虛線 + 填色</li>
+                    <li><b>Flow-W (注水速度)</b>：每秒注水流速（g/s），實線</li>
+                    <li><b>Flow-C (濾出速度)</b>：每秒流入下壺的流速（g/s），長虛線</li>
+                    <li><b>Temp1 (溫度1)</b>：電子秤水溫感測器讀值（℃），右軸</li>
+                    <li><b>Temp2 (溫度2)</b>：Belka 濃度計實測水溫（℃），右軸；僅整合檔有</li>
+                    <li><b>TDS (濃度)</b>：Belka 濃度計導電度讀值，左軸點劃線；僅整合檔有</li>
                 </ul>
             </div>
-            <div class="control-item">
-                <input type="checkbox" id="showWeight" checked>
-                <label for="showWeight">Weight</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showFlow" checked>
-                <label for="showFlow">Pour Water Flow</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showBrewFlow" checked>
-                <label for="showBrewFlow">Brew Flow (虛線)</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showTemp" checked>
-                <label for="showTemp">Temp</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showAdc1" checked>
-                <label for="showAdc1">下壺咖啡量 (下壺)</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showAdc2" checked>
-                <label for="showAdc2">濾杯咖啡量 (濾杯)</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showThermometer" checked>
-                <label for="showThermometer">Thermometer (溫度計)</label>
-            </div>
-            <div class="control-item">
-                <input type="checkbox" id="showEC" checked>
-                <label for="showEC">EC (導電度)</label>
+            <div class="control-grid">
+                <div class="control-item">
+                    <input type="checkbox" id="showWeight" checked>
+                    <label for="showWeight">Weight-W<span>總注水量</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showAdc1" checked>
+                    <label for="showAdc1">Weight-C<span>咖啡液量</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showAdc2" checked>
+                    <label for="showAdc2">Weight-D<span>濾杯水量</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showFlow" checked>
+                    <label for="showFlow">Flow-W<span>注水速度</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showBrewFlow" checked>
+                    <label for="showBrewFlow">Flow-C<span>濾出速度</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showTemp" checked>
+                    <label for="showTemp">Temp1<span>溫度1</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showThermometer" checked>
+                    <label for="showThermometer">Temp2<span>溫度2</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showEC" checked>
+                    <label for="showEC">TDS<span>濃度</span></label>
+                </div>
             </div>
         </div>
     </div>

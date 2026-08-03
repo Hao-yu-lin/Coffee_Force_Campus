@@ -133,6 +133,77 @@ function getDatasetColor(index) {
 }
 
 /**
+ * Convert HSL to a #rrggbb hex string.
+ * @param {number} h hue in degrees (any real number, wrapped)
+ * @param {number} s saturation 0–100
+ * @param {number} l lightness 0–100
+ * @returns {string}
+ */
+function hslToHex(h, s, l) {
+    const hue = ((h % 360) + 360) % 360;
+    const sat = Math.min(100, Math.max(0, s)) / 100;
+    const lum = Math.min(100, Math.max(0, l)) / 100;
+    const c = (1 - Math.abs(2 * lum - 1)) * sat;
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = lum - c / 2;
+    const seg = Math.floor(hue / 60) % 6;
+    const [r, g, b] = [
+        [c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]
+    ][seg];
+    const to255 = v => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+    return `#${to255(r)}${to255(g)}${to255(b)}`;
+}
+
+/**
+ * Build `count` maximally-separated dataset colors by spreading hues evenly
+ * around the wheel — two datasets come out complementary (180° apart), three
+ * 120° apart, and so on. Lightness alternates slightly so neighbouring hues
+ * stay distinguishable at higher counts.
+ * @param {number} count
+ * @param {number} [startHue=210] hue of the first dataset (default: blue)
+ * @returns {string[]}
+ */
+function buildDistinctColors(count, startHue = 210) {
+    const n = Math.max(0, Math.floor(count));
+    const step = n > 0 ? 360 / n : 0;
+    return Array.from({ length: n }, (_, i) =>
+        hslToHex(startHue + i * step, 68, i % 2 === 0 ? 45 : 33)
+    );
+}
+
+/**
+ * Pick an axis range so the plotted values fill `fillRatio` of the axis.
+ * Series that sit on a natural zero baseline (cumulative weights, flow rates)
+ * keep 0 as the floor and take all the slack at the top; ranges that live far
+ * from zero (temperature) get padded on both sides instead.
+ * @param {number[]} values
+ * @param {number} [fillRatio=0.9] share of the axis the data should occupy
+ * @returns {{ min: number, max: number } | null} null when there is no data
+ */
+function fitAxisRange(values, fillRatio = 0.9) {
+    const nums = (values || []).filter(v => typeof v === 'number' && isFinite(v));
+    if (!nums.length) return null;
+
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    const ratio = fillRatio > 0 && fillRatio < 1 ? fillRatio : 0.9;
+
+    if (hi === lo) {
+        const pad = Math.abs(hi) * 0.1 || 1;
+        return { min: lo >= 0 && lo <= pad ? 0 : lo - pad, max: hi + pad };
+    }
+
+    const range = hi - lo;
+    // Zero-anchored only when the data genuinely starts at zero (cumulative
+    // weights, flow rates). A series that merely runs low — temperature from a
+    // cold start — gets padded instead, so it still fills the plot.
+    if (lo >= 0 && lo <= range * 0.05) return { min: 0, max: hi / ratio };
+
+    const extra = range * (1 / ratio - 1);
+    return { min: lo - extra / 2, max: hi + extra / 2 };
+}
+
+/**
  * Calculate a robust Y-axis range by excluding IQR-based outliers.
  * Points outside the returned range are still drawn but the axis won't be
  * stretched to accommodate them.

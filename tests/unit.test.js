@@ -676,6 +676,167 @@ describe('parseTxtBrewingLog', () => {
 });
 
 /* ═══════════════════════════════════════════════════
+   Chart colours & axis fitting
+═══════════════════════════════════════════════════ */
+
+/** Pull the hue back out of a #rrggbb string, for separation checks */
+function hueOf(hex) {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0) return 0;
+    let h;
+    if (max === r)      h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else                h = (r - g) / d + 4;
+    return ((h * 60) % 360 + 360) % 360;
+}
+
+describe('hslToHex', () => {
+    test('converts pure red', () => {
+        expect(hslToHex(0, 100, 50)).toBe('#ff0000');
+    });
+
+    test('converts pure green', () => {
+        expect(hslToHex(120, 100, 50)).toBe('#00ff00');
+    });
+
+    test('converts pure blue', () => {
+        expect(hslToHex(240, 100, 50)).toBe('#0000ff');
+    });
+
+    test('zero saturation gives grey', () => {
+        expect(hslToHex(200, 0, 50)).toBe('#808080');
+    });
+
+    test('wraps hues past 360', () => {
+        expect(hslToHex(480, 100, 50)).toBe(hslToHex(120, 100, 50));
+    });
+
+    test('wraps negative hues', () => {
+        expect(hslToHex(-120, 100, 50)).toBe(hslToHex(240, 100, 50));
+    });
+
+    test('always returns a 7-char hex string', () => {
+        expect(hslToHex(37, 68, 45).length).toBe(7);
+    });
+});
+
+describe('buildDistinctColors', () => {
+    test('returns an empty array for 0', () => {
+        expect(buildDistinctColors(0)).toHaveLength(0);
+    });
+
+    test('returns one colour for a single dataset', () => {
+        expect(buildDistinctColors(1)).toHaveLength(1);
+    });
+
+    test('two datasets get complementary hues (180° apart)', () => {
+        const [a, b] = buildDistinctColors(2);
+        const diff = Math.abs(hueOf(a) - hueOf(b));
+        expect(Math.round(Math.min(diff, 360 - diff))).toBe(180);
+    });
+
+    test('three datasets are 120° apart', () => {
+        const [a, b] = buildDistinctColors(3);
+        const diff = Math.abs(hueOf(a) - hueOf(b));
+        expect(Math.round(Math.min(diff, 360 - diff))).toBe(120);
+    });
+
+    test('produces the requested count', () => {
+        expect(buildDistinctColors(7)).toHaveLength(7);
+    });
+
+    test('all colours are distinct', () => {
+        const colors = buildDistinctColors(8);
+        expect(new Set(colors).size).toBe(8);
+    });
+
+    test('every entry is a hex colour', () => {
+        expect(buildDistinctColors(5).every(c => /^#[0-9a-f]{6}$/.test(c))).toBe(true);
+    });
+
+    test('assignment is stable for the same count', () => {
+        expect(buildDistinctColors(4)).toEqual(buildDistinctColors(4));
+    });
+});
+
+describe('fitAxisRange', () => {
+    test('returns null with no usable values', () => {
+        expect(fitAxisRange([])).toBeNull();
+    });
+
+    test('ignores non-finite values', () => {
+        expect(fitAxisRange([NaN, Infinity, null])).toBeNull();
+    });
+
+    test('zero-anchored data keeps 0 as the floor', () => {
+        expect(fitAxisRange([0, 50, 100]).min).toBe(0);
+    });
+
+    test('zero-anchored data fills 90% of the axis', () => {
+        const r = fitAxisRange([0, 50, 100]);
+        expect(r.max).toBeCloseTo(100 / 0.9, 4);
+        expect(100 / (r.max - r.min)).toBeCloseTo(0.9, 4);
+    });
+
+    test('data starting just above zero still anchors at 0', () => {
+        // lo (3) is within 5% of the range (97) → treated as zero-based
+        expect(fitAxisRange([3, 100]).min).toBe(0);
+    });
+
+    test('a low-but-not-zero series is padded, not anchored', () => {
+        // a cold-start temperature trace should still fill the plot
+        const r = fitAxisRange([13.8, 88.9]);
+        expect(r.min).toBeGreaterThan(0);
+        expect((88.9 - 13.8) / (r.max - r.min)).toBeCloseTo(0.9, 4);
+    });
+
+    test('data far from zero is padded on both sides', () => {
+        const r = fitAxisRange([70, 95]);
+        expect(r.min).toBeGreaterThan(0);
+        expect(r.min).toBeLessThan(70);
+        expect(r.max).toBeGreaterThan(95);
+    });
+
+    test('padded range gives the data 90% of the axis', () => {
+        const r = fitAxisRange([70, 95]);
+        expect((95 - 70) / (r.max - r.min)).toBeCloseTo(0.9, 4);
+    });
+
+    test('padding is symmetric when far from zero', () => {
+        const r = fitAxisRange([70, 95]);
+        expect(70 - r.min).toBeCloseTo(r.max - 95, 6);
+    });
+
+    test('a flat series still gets a usable range', () => {
+        const r = fitAxisRange([80, 80, 80]);
+        expect(r.max).toBeGreaterThan(r.min);
+    });
+
+    test('a flat zero series does not collapse', () => {
+        const r = fitAxisRange([0, 0]);
+        expect(r.max).toBeGreaterThan(r.min);
+    });
+
+    test('handles negative values', () => {
+        const r = fitAxisRange([-20, -5]);
+        expect(r.min).toBeLessThan(-20);
+        expect(r.max).toBeGreaterThan(-5);
+    });
+
+    test('honours a custom fill ratio', () => {
+        const r = fitAxisRange([0, 100], 0.5);
+        expect(r.max).toBeCloseTo(200, 4);
+    });
+
+    test('falls back to 0.9 for a nonsense ratio', () => {
+        expect(fitAxisRange([0, 100], 0).max).toBeCloseTo(100 / 0.9, 4);
+    });
+});
+
+/* ═══════════════════════════════════════════════════
    記錄時間 (datetime-local field)
 ═══════════════════════════════════════════════════ */
 

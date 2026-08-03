@@ -1,3 +1,5 @@
+// Uses globals: buildDistinctColors (utils.js plain script)
+
 export class DatasetModel {
   #datasets = {};
   #visibility = {};
@@ -5,10 +7,23 @@ export class DatasetModel {
   add(id, datasetObj) {
     this.#datasets[id] = datasetObj;
     this.#visibility[id] = true;
+    this.reassignColors();
   }
   remove(id) {
     delete this.#datasets[id];
     delete this.#visibility[id];
+    this.reassignColors();
+  }
+
+  /**
+   * Spread dataset colours evenly around the hue wheel so they stay maximally
+   * distinct — two datasets end up complementary, three 120° apart, and so on.
+   * Runs whenever the set of datasets changes.
+   */
+  reassignColors() {
+    const ids = Object.keys(this.#datasets);
+    const colors = buildDistinctColors(ids.length);
+    ids.forEach((id, i) => { this.#datasets[id].color = colors[i]; });
   }
   get(id) { return this.#datasets[id]; }
   getAll() { return { ...this.#datasets }; }
@@ -32,6 +47,7 @@ export class DatasetModel {
     Object.keys(this.#datasets).forEach(id => {
       if (this.#visibility[id] === undefined) this.#visibility[id] = true;
     });
+    this.reassignColors();
   }
   setParam(id, key, value) {
     if (this.#datasets[id]) this.#datasets[id][key] = value;

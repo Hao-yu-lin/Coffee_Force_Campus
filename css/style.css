@@ -348,7 +348,15 @@ h1 {
     background: #f8f9fa;
     border-radius: var(--radius);
     padding: 16px;
-    max-height: 600px;
+    /* Match the chart column so the 顯示選項 block is not pushed out of view */
+    max-height: calc(76vh + 8px);
+    overflow-y: auto;
+}
+
+/* Let a long dataset list scroll on its own rather than pushing the
+   display options below the fold */
+#datasetList {
+    max-height: 210px;
     overflow-y: auto;
 }
 
@@ -569,6 +577,33 @@ h1 {
 }
 .control-item input[type="checkbox"] { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; }
 .control-item label { font-size: 0.9em; color: var(--text); cursor: pointer; }
+
+/* Two columns so all eight series fit without scrolling the panel */
+.control-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 6px;
+}
+.control-grid .control-item {
+    padding: 6px 8px;
+    margin-bottom: 0;
+    min-width: 0;
+}
+.control-grid .control-item input[type="checkbox"] { flex-shrink: 0; margin-right: 6px; }
+.control-grid .control-item label {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    font-size: 0.82em;
+    font-weight: 700;
+    min-width: 0;
+}
+.control-grid .control-item label span {
+    font-weight: 400;
+    font-size: 0.85em;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
 
 /* ── Mobile Control Drawer ──────────────────────── */
 .mobile-control-toggle {
@@ -998,6 +1033,15 @@ h1 {
     .brewing-layout { flex-direction: column; }
     .left-tooltip-panel { display: none !important; }
     .control-panel { display: none; }
+    /* …unless it has been moved into the drawer, where it fills the width */
+    .control-panel.in-drawer {
+        display: block;
+        width: auto;
+        max-height: none;
+        padding: 0;
+        background: transparent;
+        overflow: visible;
+    }
     .mobile-control-toggle { display: block; }
     .chart-box { height: 220px; }
     .cva-layout { flex-direction: column; min-height: auto; }

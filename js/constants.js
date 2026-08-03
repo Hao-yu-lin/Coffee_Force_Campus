@@ -57,6 +57,30 @@ const MOUTHFEEL_DATA = {
     "Other":   ["Complex","Balanced","Delicate"]
 };
 
+/* ═══════════════════════════════════════════════════
+   Chart series — one entry per data type.
+   Colour identifies the dataset; line style identifies the type.
+   `field` is the dataset property, `option` the checkbox id,
+   `axis` the Chart.js scale id.
+═══════════════════════════════════════════════════ */
+const SERIES_TYPES = {
+    weight:      { field: 'weight',      label: 'Weight-W', zh: '總注水量', option: 'showWeight',       axis: 'y',      dash: [],           width: 2.5, fill: false },
+    adc1:        { field: 'adc1',        label: 'Weight-C', zh: '咖啡液量', option: 'showAdc1',         axis: 'y',      dash: [6, 3],       width: 2,   fill: true  },
+    adc2:        { field: 'adc2',        label: 'Weight-D', zh: '濾杯水量', option: 'showAdc2',         axis: 'y',      dash: [2, 3],       width: 2,   fill: true  },
+    flow:        { field: 'flow',        label: 'Flow-W',   zh: '注水速度', option: 'showFlow',         axis: 'y',      dash: [],           width: 1.5, fill: false },
+    bflow:       { field: 'bflow',       label: 'Flow-C',   zh: '濾出速度', option: 'showBrewFlow',     axis: 'y',      dash: [6, 3],       width: 1.5, fill: false },
+    temp:        { field: 'temp',        label: 'Temp1',    zh: '溫度1',   option: 'showTemp',         axis: 'yRight', dash: [10, 4],      width: 1.5, fill: false },
+    thermometer: { field: 'thermometer', label: 'Temp2',    zh: '溫度2',   option: 'showThermometer',  axis: 'yRight', dash: [2, 2],       width: 2,   fill: false },
+    ec:          { field: 'ec',          label: 'TDS',      zh: '濃度',    option: 'showEC',           axis: 'y',      dash: [9, 3, 2, 3], width: 2,   fill: false },
+};
+
+// Draw order per chart (earlier entries render underneath)
+const WEIGHT_CHART_SERIES = ['adc1', 'adc2', 'weight'];
+const FLOW_CHART_SERIES   = ['flow', 'bflow', 'ec', 'temp', 'thermometer'];
+
+// Share of the plot height the curves should occupy after auto-fitting
+const AXIS_FILL_RATIO = 0.9;
+
 const AFFECTIVE_SECTIONS = ['fragrance','aroma','flavor','aftertaste','acidity','sweetness','mouthfeel','overall'];
 
 const CVA_DESCRIPTIVE_SECTIONS = ['fragrance','flavor','aftertaste','acidity','sweetness','mouthfeel'];
