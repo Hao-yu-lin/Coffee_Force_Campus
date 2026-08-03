@@ -116,7 +116,7 @@ function parseRawDataCSV(rows, filename) {
  * Uses parseTxtBrewingLog (utils.js) then buildRawDataset (csvParser.js).
  * Extra fields not in CSV are stored on ds.extra and printed to console.
  */
-export function parseTxtFile(text, filename, silent = false) {
+function parseTxtFile(text, filename, silent = false) {
   try {
     const parsed = parseTxtBrewingLog(text);
     if (!parsed) { if (!silent) alert('無法解析 TXT 格式'); return false; }
@@ -140,7 +140,7 @@ export function parseTxtFile(text, filename, silent = false) {
     if (ds.extra) {
       console.group(`📋 ${name} — TXT 額外欄位（CSV 沒有）`);
       console.log('thermometer (實際溫度計):', ds.extra.thermometer);
-      console.log('EC (Belka 導電度):', ds.extra.EC);
+      console.log('EC (導電度):', ds.extra.EC);
       console.log('percent (萃取率/秒):', ds.extra.percent);
       console.log('coffeePowerWeight (咖啡粉重/秒):', ds.extra.coffeePowerWeight);
       console.log('ratio (水粉比數值/秒):', ds.extra.ratio);

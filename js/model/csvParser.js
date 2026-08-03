@@ -42,7 +42,7 @@ export function buildRawDataset(id, name, color, parsed) {
     time: timeLabels, weight: pWC, flow: pWF, bflow: bF, temp,
     ...(adc1 ? { adc1 } : {}),
     ...(adc2 ? { adc2 } : {}),
-    // Belka-merged series (present only after 資料整合)
+    // Refractometer series (present only in merged TXT files)
     ...(thermometer ? { thermometer } : {}),
     ...(ec ? { ec } : {}),
     metrics: {

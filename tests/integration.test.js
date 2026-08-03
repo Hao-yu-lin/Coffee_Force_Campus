@@ -101,7 +101,7 @@ describe('Integration — temp array is empty for all real files', () => {
 });
 
 /* ═══════════════════════════════════════════════════
-   Belka × coffeeSecret 整合檔 (real _整合版.txt exports)
+   整合檔 (real _整合版.txt exports with thermometer / EC)
 ═══════════════════════════════════════════════════ */
 
 async function fetchText(relativePath) {
@@ -147,42 +147,6 @@ describe('Integration — merged series are numeric and in range', () => {
             expect(Math.max(...r.thermometer)).toBeLessThan(110);
             expect(Math.min(...r.ec)).toBeGreaterThan(-0.001);
             expect(Math.max(...r.ec)).toBeLessThan(20);
-        });
-    }
-});
-
-/* ─── Suite 9: full merge round-trip on real data ───────────── */
-describe('Integration — re-merging a real file end to end', () => {
-    // Belka CSV covering the first minute; the rest is forward-filled.
-    const BELKA_CSV = [
-        'Time,Temp,EC',
-        '1.0s,31.00,0.10',
-        '30.0s,68.00,2.40',
-        '1:00.0,74.00,1.10',
-    ].join('\n');
-
-    for (const spec of MERGED_FILES) {
-        test(spec.name, async () => {
-            const txt    = await fetchText(`../data/${encodeURIComponent(spec.file)}`);
-            const points = parseBelkaCSV(BELKA_CSV);
-            expect(points).toHaveLength(3);
-
-            const merged = mergeBelkaIntoBrewingLog(JSON.parse(txt), points);
-            expect(merged).toBeTruthy();
-            // Re-merging aligns the series with the per-second arrays
-            expect(merged.length).toBe(spec.len);
-
-            const log = merged.root.json.brewingLog;
-            expect(log.EC).toHaveLength(spec.len);
-            expect(log.thermometer).toHaveLength(spec.len);
-            expect(log.thermometer[0]).toBe(31);      // exact hit at second 1
-            expect(log.thermometer[14]).toBeCloseTo(48.86, 2);  // second 15, interpolated
-            expect(log.thermometer[spec.len - 1]).toBe(74);    // forward-filled tail
-
-            // …and the result feeds straight back into the TXT parser
-            const reparsed = parseTxtBrewingLog(JSON.stringify(merged.root));
-            expect(reparsed.thermometer).toHaveLength(spec.len);
-            expect(reparsed.ec).toHaveLength(spec.len);
         });
     }
 });

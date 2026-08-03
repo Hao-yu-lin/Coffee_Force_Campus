@@ -81,32 +81,6 @@
         </div>
     </nav>
 
-    <!-- ── Belka × coffeeSecret 資料整合 ── -->
-    <div id="belkaModal" class="belka-modal" style="display:none;">
-        <div class="belka-box">
-            <div class="belka-header">
-                <span>🔬 Belka × coffeeSecret 資料整合</span>
-                <button type="button" id="belkaCloseBtn" class="belka-close" title="關閉">✕</button>
-            </div>
-            <div class="belka-body">
-                <label class="belka-field">
-                    <span>1. Belka 濃度計 CSV（需含 Time / Temp / EC 欄位）</span>
-                    <input type="file" id="belkaCsvInput" accept=".csv">
-                </label>
-                <label class="belka-field">
-                    <span>2. coffeeSecret 電子秤 TXT</span>
-                    <input type="file" id="belkaTxtInput" accept=".txt">
-                </label>
-                <label class="belka-checkbox">
-                    <input type="checkbox" id="belkaDownload">
-                    <span>同時下載整合檔（_整合版.txt）</span>
-                </label>
-                <button type="button" id="belkaRunBtn" class="import-btn">整合並匯入資料集</button>
-                <div id="belkaLog" class="belka-log">等待操作…</div>
-            </div>
-        </div>
-    </div>
-
     <!-- Hidden file inputs (mobile-accessible) -->
     <input type="file" id="fileInputMobile" accept=".csv,.txt" style="display:none;" multiple>
     <input type="file" id="folderInputMobile" webkitdirectory accept=".csv,.txt" style="display:none;" multiple>

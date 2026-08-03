@@ -489,7 +489,8 @@ export function initCharts(datasetModel, getCheckboxValues) {
       layout: { padding: 0 },
       scales: {
         x: { title: { display: true, text: 'Time (s)' }, grid: { color: 'rgba(0,0,0,0.08)' } },
-        y: { min: -5, max: 15, afterFit(s) { s.width = 60; }, title: { display: true, text: 'Flow / Temp' }, grid: { color: 'rgba(0,0,0,0.08)' } },
+        // Left axis carries Flow-W / Flow-C (g/s) and TDS; temperature is on yRight
+        y: { afterFit(s) { s.width = 60; }, title: { display: true, text: 'Flow (g/s) / TDS' }, grid: { color: 'rgba(0,0,0,0.08)' } },
         yRight: {
           type: 'linear', position: 'right', display: true,
           ticks: { display: false }, grid: { drawOnChartArea: false },
