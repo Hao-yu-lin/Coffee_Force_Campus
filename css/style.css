@@ -348,16 +348,51 @@ h1 {
     background: #f8f9fa;
     border-radius: var(--radius);
     padding: 16px;
-    /* Match the chart column so the 顯示選項 block is not pushed out of view */
     max-height: calc(76vh + 8px);
+    overflow-y: auto;
+    /* Column layout so the 顯示選項 block always keeps its full height and
+       the dataset list is the only part that gives up space. Without this the
+       list grows with each imported dataset and pushes the last options out of
+       the panel's scroll viewport. */
+    display: flex;
+    flex-direction: column;
+}
+
+/* 資料集管理 — absorbs the leftover height */
+.control-panel > .control-section:first-of-type {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* 顯示選項 — never shrinks */
+.control-panel > .control-section:last-of-type {
+    flex: 0 0 auto;
+}
+
+/* The dataset list is what scrolls once space runs out */
+#datasetList {
+    flex: 1 1 auto;
+    min-height: 92px;
     overflow-y: auto;
 }
 
-/* Let a long dataset list scroll on its own rather than pushing the
-   display options below the fold */
-#datasetList {
-    max-height: 210px;
-    overflow-y: auto;
+/* Two-up action buttons, so four stacked full-width buttons don't eat the
+   height the dataset list needs */
+.panel-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+    flex: 0 0 auto;
+}
+.panel-actions button {
+    width: 100%;
+    margin: 0;
+    padding: 9px 6px;
+    font-size: 0.78em;
+    line-height: 1.2;
 }
 
 .control-panel h3 {

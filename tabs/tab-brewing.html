@@ -28,12 +28,14 @@
                 <button class="dataset-btn" data-action="deselect-all">全不選</button>
             </div>
             <div id="datasetList"></div>
-            <button class="import-btn" id="importCsvBtn">+ 匯入 CSV / TXT</button>
             <input type="file" id="fileInput" accept=".csv,.txt" style="display:none;" multiple>
-            <button class="folder-btn" id="importFolderBtn">📂 載入資料夾</button>
             <input type="file" id="folderInput" webkitdirectory accept=".csv,.txt" style="display:none;" multiple>
-            <button class="merge-btn" id="belkaMergeBtn">🔬 Belka 濃度計整合</button>
-            <button class="dataset-btn danger" style="width:100%;margin-top:8px;" data-action="clear-selected">🗑 清除選擇的資料集</button>
+            <div class="panel-actions">
+                <button class="import-btn" id="importCsvBtn">+ 匯入 CSV / TXT</button>
+                <button class="folder-btn" id="importFolderBtn">📂 載入資料夾</button>
+                <button class="merge-btn" id="belkaMergeBtn">🔬 Belka 整合</button>
+                <button class="dataset-btn danger" data-action="clear-selected">🗑 清除選擇</button>
+            </div>
         </div>
         <div class="control-section">
             <div class="section-title" style="display:flex;align-items:center;gap:6px;">
