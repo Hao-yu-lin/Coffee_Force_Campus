@@ -3,7 +3,7 @@
 
 export const DISPLAY_OPTION_IDS = [
   'showWeight', 'showFlow', 'showBrewFlow', 'showTemp',
-  'showAdc1', 'showAdc2', 'showThermometer', 'showEC'
+  'showAdc1', 'showAdc2', 'showThermometer', 'showEC', 'showTDSPrediction'
 ];
 
 export function getDisplayOptions() {

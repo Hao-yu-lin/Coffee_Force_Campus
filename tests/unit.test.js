@@ -1123,3 +1123,98 @@ describe('buildZoneBands', () => {
         expect(bands[0].color).toBe('#112233');
     });
 });
+
+/* ─── Tests: buildTdsPrediction ─────────────────────────────── */
+
+describe('buildTdsPrediction', () => {
+    const fallingTds = [3.0, 2.7, 2.4, 2.1, 1.9, 1.7, 1.5, 1.3, 0, 0, 0, 0];
+    const growingWeight = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+
+    test('predicts a sustained zero run when Weight-C keeps increasing', () => {
+        const result = buildTdsPrediction(fallingTds, growingWeight);
+        expect(result.predictedCount).toBe(4);
+        expect(result.predicted[8]).toBeGreaterThan(0);
+        expect(result.predicted[11]).toBeGreaterThan(0);
+        expect(result.measured[8]).toBeNull();
+    });
+
+    test('keeps an anchor point so the measured and predicted lines join', () => {
+        const result = buildTdsPrediction(fallingTds, growingWeight);
+        expect(result.predicted[7]).toBe(1.3);
+    });
+
+    test('constrains a decay prediction to stay flat or fall', () => {
+        const result = buildTdsPrediction(fallingTds, growingWeight);
+        expect(result.predicted[11]).toBeLessThan(result.predicted[8]);
+    });
+
+    test('does not predict leading sensor zeros before enough evidence exists', () => {
+        const result = buildTdsPrediction(
+            [0, 0, 0, 2.2, 2.0, 1.8, 1.6, 1.4, 1.2, 1.0, 0.8, 0.6],
+            growingWeight
+        );
+        expect(result.predicted[0]).toBeNull();
+        expect(result.predicted[1]).toBeNull();
+        expect(result.predicted[2]).toBeNull();
+    });
+
+    test('does not predict a zero run when Weight-C did not increase', () => {
+        const result = buildTdsPrediction(
+            fallingTds,
+            [0, 2, 4, 6, 8, 10, 12, 14, 14, 14, 14, 14]
+        );
+        expect(result.predictedCount).toBe(0);
+    });
+
+    test('does not mutate input arrays', () => {
+        const originalTds = [...fallingTds];
+        const originalWeight = [...growingWeight];
+        buildTdsPrediction(fallingTds, growingWeight);
+        expect(fallingTds).toEqual(originalTds);
+        expect(growingWeight).toEqual(originalWeight);
+    });
+
+    test('preserves null sensor gaps instead of treating them as zero readings', () => {
+        const result = buildTdsPrediction(
+            [3.0, 2.7, 2.4, 2.1, 1.9, 1.7, 1.5, 1.3, null, null, null, null],
+            growingWeight
+        );
+        expect(result.predictedCount).toBe(0);
+        expect(result.measured[8]).toBeNull();
+    });
+});
+
+/* ─── Tests: buildCupTdsPrediction ──────────────────────────── */
+
+describe('buildCupTdsPrediction', () => {
+    test('starts at zero before any liquid interval enters the cup', () => {
+        const result = buildCupTdsPrediction([2, 1], [0, 10, 20], { minFitPoints: 3 });
+        expect(result.cup[0]).toBe(0);
+    });
+
+    test('calculates a mass-weighted whole-cup concentration', () => {
+        const result = buildCupTdsPrediction([2, 1], [0, 10, 20], { minFitPoints: 3 });
+        expect(result.cup).toEqual([0, 2, 1.5]);
+        expect(result.totalLiquidMass).toBe(20);
+    });
+
+    test('ignores negative Weight-C noise instead of subtracting liquid mass', () => {
+        const result = buildCupTdsPrediction([2, 2, 2], [0, 10, 9, 19], { minFitPoints: 3 });
+        expect(result.totalLiquidMass).toBe(20);
+        expect(result.cup[result.cup.length - 1]).toBe(2);
+    });
+
+    test('holds the final value when Weight-C has one more sample than TDS', () => {
+        const result = buildCupTdsPrediction([2], [0, 10, 10], { minFitPoints: 3 });
+        expect(result.cup).toEqual([0, 2, 2]);
+    });
+
+    test('uses predicted instantaneous values inside sustained zero gaps', () => {
+        const result = buildCupTdsPrediction(
+            [3.0, 2.7, 2.4, 2.1, 1.9, 1.7, 1.5, 1.3, 0, 0, 0, 0],
+            [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
+        );
+        expect(result.predictedCount).toBe(4);
+        expect(result.cup[result.cup.length - 1]).toBeGreaterThan(0);
+    });
+});

@@ -51,7 +51,8 @@
                     <li><b>Flow-C (濾出速度)</b>：每秒流入下壺的流速（g/s），長虛線</li>
                     <li><b>Temp1 (溫度1)</b>：電子秤水溫感測器讀值（℃），右軸</li>
                     <li><b>Temp2 (溫度2)</b>：濃度計實測水溫（℃），右軸；僅整合檔有</li>
-                    <li><b>TDS (濃度)</b>：濃度計導電度讀值，左軸點劃線；僅整合檔有</li>
+                    <li><b>TDS (實測濃度)</b>：濃度計讀值，左軸點劃線；僅整合檔有</li>
+                    <li><b>TDS-P (整杯混合濃度)</b>：以每秒瞬時 TDS × Weight-C 增量累積計算；零值缺口使用衰減模型補值，以連續實線顯示，但不是折射計實測</li>
                 </ul>
             </div>
             <div class="control-grid">
@@ -85,7 +86,11 @@
                 </div>
                 <div class="control-item">
                     <input type="checkbox" id="showEC" checked>
-                    <label for="showEC">TDS<span>濃度</span></label>
+                    <label for="showEC">TDS<span>實測濃度</span></label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showTDSPrediction" checked>
+                    <label for="showTDSPrediction">TDS-P<span>整杯混合濃度</span></label>
                 </div>
             </div>
         </div>

@@ -72,7 +72,8 @@ const SERIES_TYPES = {
     bflow:       { field: 'bflow',       label: 'Flow-C',   zh: '濾出速度', option: 'showBrewFlow',     axis: 'y',      axisLabel: 'Flow (g/s)',  dash: [6, 3],       width: 1.5, fill: false },
     temp:        { field: 'temp',        label: 'Temp1',    zh: '溫度1',   option: 'showTemp',         axis: 'yRight', axisLabel: 'Temp (℃)',    dash: [10, 4],      width: 1.5, fill: false },
     thermometer: { field: 'thermometer', label: 'Temp2',    zh: '溫度2',   option: 'showThermometer',  axis: 'yRight', axisLabel: 'Temp (℃)',    dash: [2, 2],       width: 2,   fill: false },
-    ec:          { field: 'ec',          label: 'TDS',      zh: '濃度',    option: 'showEC',           axis: 'y',      axisLabel: 'TDS',         dash: [9, 3, 2, 3], width: 2,   fill: false },
+    ec:          { field: 'ec',          label: 'TDS',      zh: '實測濃度', option: 'showEC',           axis: 'y',      axisLabel: 'TDS',         dash: [9, 3, 2, 3], width: 2,   fill: false },
+    tdsPrediction:{ field: null,          label: 'TDS-P',    zh: '整杯混合濃度',option:'showTDSPrediction',axis: 'y',     axisLabel: 'TDS',         dash: [],           width: 2.5, fill: false },
 };
 
 // Temperature always reads on a fixed 0–90℃ scale, so the same curve sits at
@@ -82,7 +83,7 @@ const TEMP_AXIS_RANGE = { min: 0, max: 90 };
 
 // Draw order per chart (earlier entries render underneath)
 const WEIGHT_CHART_SERIES = ['adc1', 'adc2', 'weight'];
-const FLOW_CHART_SERIES   = ['flow', 'bflow', 'ec', 'temp', 'thermometer'];
+const FLOW_CHART_SERIES   = ['flow', 'bflow', 'ec', 'tdsPrediction', 'temp', 'thermometer'];
 
 // Share of the plot height the curves should occupy after auto-fitting
 const AXIS_FILL_RATIO = 0.9;

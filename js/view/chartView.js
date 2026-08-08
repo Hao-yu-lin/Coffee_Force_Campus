@@ -107,8 +107,13 @@ export function initCharts(datasetModel, getCheckboxValues) {
         const timeIdx = ctx.dataIndex;
         const opts = getCheckboxValues();
         const lines = [];
+        const predictionDs = ctx.chart.data.datasets.find(d =>
+          d.datasetId === ctx.dataset.datasetId && d.seriesKey === 'tdsPrediction'
+        );
+        const predictedTds = predictionDs?.data?.[timeIdx];
         Object.values(SERIES_TYPES).forEach(spec => {
           if (!opts[spec.option]) return;
+          if (!spec.field) return;
           const v = ds[spec.field]?.[timeIdx];
           if (v == null || isNaN(Number(v))) return;
           lines.push(`  - ${spec.label} (${spec.zh}): ${Number(v).toFixed(2)}`);
@@ -117,6 +122,9 @@ export function initCharts(datasetModel, getCheckboxValues) {
             if (bw && isFinite(bw)) lines.push(`  - 水粉比: ${(Number(v) / bw).toFixed(2)}`);
           }
         });
+        if (opts.showTDSPrediction && predictedTds != null && isFinite(Number(predictedTds))) {
+          lines.push(`  - TDS-P (整杯混合濃度): ${Number(predictedTds).toFixed(2)}`);
+        }
         return lines.length ? lines : null;
       }
     }
@@ -533,6 +541,16 @@ export function updateCharts(datasetModel, displayOptions = {}) {
   // Manual bounds from the 座標軸範圍 panel; each null field keeps the auto value
   const axisRanges = getAxisRanges();
 
+  // The mixed-cup curve is derived at render time and never written into the
+  // source dataset. This keeps measured instantaneous TDS and model output
+  // unambiguously separate.
+  const tdsPredictions = new Map();
+  visible.forEach(d => {
+    if (d.ec?.length && d.adc1?.length) {
+      tdsPredictions.set(d.id, buildCupTdsPrediction(d.ec, d.adc1));
+    }
+  });
+
   const xMin = axisRanges.x?.min ?? 0;
   const xMax = axisRanges.x?.max ?? maxTime;
   [weightChart, flowTempChart].forEach(chart => {
@@ -548,8 +566,12 @@ export function updateCharts(datasetModel, displayOptions = {}) {
       const spec = SERIES_TYPES[key];
       if (!spec || !opts[spec.option]) return;
       visible.forEach(d => {
-        const data = d[spec.field];
+        const prediction = tdsPredictions.get(d.id);
+        const data = key === 'tdsPrediction'
+          ? prediction?.cup
+          : d[spec.field];
         if (!data?.length) return;
+        if (key === 'tdsPrediction' && !prediction?.totalLiquidMass) return;
         out.push({
           datasetId: d.id,
           dsName:    d.name,

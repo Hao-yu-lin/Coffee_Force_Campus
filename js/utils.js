@@ -204,6 +204,179 @@ function fitAxisRange(values, fillRatio = 0.9) {
 }
 
 /**
+ * Build a first-pass TDS prediction for trailing/mid-curve zero-value gaps.
+ *
+ * The concentration decay is fitted against cumulative brewed-liquid mass
+ * (Weight-C), not elapsed time.  For every eligible zero run we regress
+ * log(TDS) = intercept + slope * mass on the recent measured tail, constrain
+ * the slope to non-positive, and extrapolate only while Weight-C shows that
+ * coffee liquid continued to enter the receiving vessel.
+ *
+ * This function never mutates the source arrays.  `measured` masks only the
+ * zero points replaced by the model; `predicted` contains null outside those
+ * gaps plus one measured anchor point so Chart.js can join solid to dashed.
+ *
+ * @param {number[]} tds instantaneous TDS/EC readings
+ * @param {number[]} coffeeWeight cumulative Weight-C readings (g)
+ * @param {object} [options]
+ * @returns {{measured: (number|null)[], predicted: (number|null)[],
+ *            predictedCount: number, predictedMass: number}}
+ */
+function buildTdsPrediction(tds, coffeeWeight, options = {}) {
+    const toNumberOrNull = value => {
+        if (value === null || value === undefined || value === '') return null;
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+    };
+    const source = Array.isArray(tds) ? tds.map(toNumberOrNull) : [];
+    const weights = Array.isArray(coffeeWeight) ? coffeeWeight.map(toNumberOrNull) : [];
+    const n = Math.min(source.length, weights.length);
+    const measured = source.slice(0, n).map(v => Number.isFinite(v) ? v : null);
+    const predicted = Array(n).fill(null);
+
+    const minFitPoints = Math.max(3, options.minFitPoints ?? 8);
+    const fitWindow = Math.max(minFitPoints, options.fitWindow ?? 30);
+    const minZeroRun = Math.max(1, options.minZeroRun ?? 3);
+    const minMassGain = Math.max(0, options.minMassGain ?? 0.5);
+    const minFitTds = Math.max(0, options.minFitTds ?? 0.15);
+    const maxDecayPerGram = Math.max(0.001, options.maxDecayPerGram ?? 0.12);
+
+    if (n < minFitPoints + minZeroRun) {
+        return { measured, predicted, predictedCount: 0, predictedMass: 0 };
+    }
+
+    const massAt = i => Number.isFinite(weights[i]) ? weights[i] : 0;
+    const positiveDelta = (from, to) => {
+        let total = 0;
+        for (let i = Math.max(1, from); i <= Math.min(to, n - 1); i++) {
+            const delta = massAt(i) - massAt(i - 1);
+            if (delta > 0 && Number.isFinite(delta)) total += delta;
+        }
+        return total;
+    };
+
+    const fitBefore = runStart => {
+        const candidates = [];
+        for (let i = 0; i < runStart; i++) {
+            const y = source[i];
+            const x = massAt(i);
+            if (Number.isFinite(y) && y > minFitTds && Number.isFinite(x)) candidates.push({ x, y, i });
+        }
+        if (candidates.length < minFitPoints) return null;
+
+        let tail = candidates.slice(-fitWindow);
+        // Prefer the descending side of the most recent local peak.  If that
+        // leaves too little evidence, use the complete recent window.
+        let peakPos = 0;
+        tail.forEach((p, i) => { if (p.y >= tail[peakPos].y) peakPos = i; });
+        const descending = tail.slice(peakPos);
+        if (descending.length >= minFitPoints) tail = descending;
+
+        const xs = tail.map(p => p.x);
+        const ys = tail.map(p => Math.log(p.y));
+        const meanX = xs.reduce((a, b) => a + b, 0) / xs.length;
+        const meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
+        const variance = xs.reduce((s, x) => s + (x - meanX) ** 2, 0);
+        if (variance <= 1e-9) return null;
+
+        const covariance = xs.reduce((s, x, i) => s + (x - meanX) * (ys[i] - meanY), 0);
+        // A concentration prediction may remain flat but must never rise merely
+        // because the final few noisy readings happened to slope upward.
+        const slope = Math.max(-maxDecayPerGram, Math.min(0, covariance / variance));
+        const intercept = meanY - slope * meanX;
+        const cap = Math.max(...tail.map(p => p.y));
+        return { slope, intercept, cap };
+    };
+
+    let predictedCount = 0;
+    let predictedMass = 0;
+    let i = 0;
+    while (i < n) {
+        if (!Number.isFinite(source[i]) || source[i] > 0) { i++; continue; }
+        const start = i;
+        while (i < n && Number.isFinite(source[i]) && source[i] <= 0) i++;
+        const end = i - 1;
+        const runMass = positiveDelta(start, end);
+        if (end - start + 1 < minZeroRun || runMass < minMassGain || start === 0) continue;
+
+        const fit = fitBefore(start);
+        if (!fit) continue;
+
+        const anchor = source[start - 1];
+        if (Number.isFinite(anchor) && anchor > 0) predicted[start - 1] = anchor;
+        for (let j = start; j <= end; j++) {
+            const value = Math.min(fit.cap, Math.max(0, Math.exp(fit.intercept + fit.slope * massAt(j))));
+            predicted[j] = value;
+            measured[j] = null;
+            predictedCount++;
+        }
+        predictedMass += runMass;
+    }
+
+    return { measured, predicted, predictedCount, predictedMass };
+}
+
+/**
+ * Convert instantaneous TDS readings into the estimated concentration of the
+ * complete liquid currently collected in the receiving vessel.
+ *
+ * For each interval, dissolved-solids mass is `TDS × positive ΔWeight-C`.
+ * Dividing accumulated solids by accumulated liquid produces the mixed-cup
+ * concentration.  Missing zero-value intervals use buildTdsPrediction's
+ * instantaneous estimate; unresolved intervals conservatively contribute 0.
+ * The first point is always 0, before the first interval has entered the cup.
+ *
+ * @param {number[]} tds instantaneous TDS/EC readings
+ * @param {number[]} coffeeWeight cumulative Weight-C readings (g)
+ * @param {object} [options] forwarded to buildTdsPrediction
+ * @returns {{cup: number[], predictedCount: number, predictedMass: number,
+ *            totalLiquidMass: number}}
+ */
+function buildCupTdsPrediction(tds, coffeeWeight, options = {}) {
+    const source = Array.isArray(tds) ? tds : [];
+    const weights = Array.isArray(coffeeWeight) ? coffeeWeight : [];
+    if (!weights.length) {
+        return { cup: [], predictedCount: 0, predictedMass: 0, totalLiquidMass: 0 };
+    }
+
+    const instantPrediction = buildTdsPrediction(source, weights, options);
+    const intervalCount = Math.min(source.length, Math.max(0, weights.length - 1));
+    const cup = Array(weights.length).fill(0);
+    let solids = 0;
+    let liquid = 0;
+
+    for (let i = 0; i < intervalCount; i++) {
+        const currentWeight = Number(weights[i]);
+        const nextWeight = Number(weights[i + 1]);
+        const delta = Number.isFinite(currentWeight) && Number.isFinite(nextWeight)
+            ? Math.max(0, nextWeight - currentWeight)
+            : 0;
+
+        const measured = Number(source[i]);
+        const predicted = instantPrediction.predicted[i];
+        const concentration = source[i] !== null && source[i] !== undefined && source[i] !== '' &&
+            Number.isFinite(measured) && measured > 0
+            ? measured
+            : Number.isFinite(predicted) ? predicted : 0;
+
+        solids += concentration * delta;
+        liquid += delta;
+        cup[i + 1] = liquid > 0 ? solids / liquid : 0;
+    }
+
+    // When Weight-C has more samples than instantaneous TDS, hold the latest
+    // mixed concentration rather than introducing an artificial final drop.
+    for (let i = intervalCount + 1; i < cup.length; i++) cup[i] = cup[i - 1];
+
+    return {
+        cup,
+        predictedCount: instantPrediction.predictedCount,
+        predictedMass: instantPrediction.predictedMass,
+        totalLiquidMass: liquid
+    };
+}
+
+/**
  * Calculate a robust Y-axis range by excluding IQR-based outliers.
  * Points outside the returned range are still drawn but the axis won't be
  * stretched to accommodate them.
