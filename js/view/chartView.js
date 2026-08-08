@@ -100,13 +100,15 @@ export function initCharts(datasetModel, getCheckboxValues) {
       array.findIndex(i => i.dataset.datasetId === item.dataset.datasetId) === index,
     callbacks: {
       title: ctx => `時間: ${ctx[0].label} 秒`,
-      label: ctx => ctx.dataset.dsName || ctx.dataset.label || '',
-      afterLabel: ctx => {
-        const ds = datasetModel.get(ctx.dataset.datasetId);
-        if (!ds) return null;
+      // Return every detail as part of `label` instead of `afterLabel`.
+      // Chart.js's external tooltip body consistently exposes `label` lines,
+      // while some versions omit arrays returned by afterLabel.
+      label: ctx => {
+        const ds = ctx.dataset.sourceDataset || datasetModel.get(ctx.dataset.datasetId);
+        const lines = [ctx.dataset.dsName || ctx.dataset.label || ''];
+        if (!ds) return lines[0];
         const timeIdx = ctx.dataIndex;
         const opts = getCheckboxValues();
-        const lines = [];
         const predictionDs = ctx.chart.data.datasets.find(d =>
           d.datasetId === ctx.dataset.datasetId && d.seriesKey === 'tdsPrediction'
         );
@@ -125,7 +127,10 @@ export function initCharts(datasetModel, getCheckboxValues) {
         if (opts.showTDSPrediction && predictedTds != null && isFinite(Number(predictedTds))) {
           lines.push(`  - TDS-P (整杯混合濃度): ${Number(predictedTds).toFixed(2)}`);
         }
-        return lines.length ? lines : null;
+        // The external tooltip writes this callback output as HTML. Returning
+        // one explicit string is more reliable than a string array across the
+        // Chart.js versions served by the CDN (some keep only array[0]).
+        return lines.join('<br/>');
       }
     }
   };
@@ -575,6 +580,7 @@ export function updateCharts(datasetModel, displayOptions = {}) {
         out.push({
           datasetId: d.id,
           dsName:    d.name,
+          sourceDataset: d,
           seriesKey: key,
           seriesLabel: spec.label,
           label: `${d.name} - ${spec.label}`,

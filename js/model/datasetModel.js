@@ -5,6 +5,11 @@ export class DatasetModel {
   #visibility = {};
 
   add(id, datasetObj) {
+    // Imported history files keep the ID from the file they were saved in,
+    // while AppState assigns a fresh ID for the current session.  All chart
+    // datasets and tooltip lookups must use that fresh model key, otherwise the
+    // left detail panel can find the series name but not its underlying data.
+    datasetObj.id = id;
     this.#datasets[id] = datasetObj;
     this.#visibility[id] = true;
     this.reassignColors();
