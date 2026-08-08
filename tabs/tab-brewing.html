@@ -89,5 +89,55 @@
                 </div>
             </div>
         </div>
+        <div class="control-section">
+            <button class="axis-btn" id="axisRangeBtn">📐 座標軸範圍 ▾</button>
+            <div class="axis-range-panel" id="axisRangePanel" style="display:none;">
+                <div class="axis-range-row">
+                    <label>時間 X（秒）</label>
+                    <input type="number" id="axisXMin" placeholder="自動" step="any">
+                    <span>~</span>
+                    <input type="number" id="axisXMax" placeholder="自動" step="any">
+                </div>
+                <div class="axis-range-row">
+                    <label>Weight 圖左軸（g）</label>
+                    <input type="number" id="axisWeightMin" placeholder="自動" step="any">
+                    <span>~</span>
+                    <input type="number" id="axisWeightMax" placeholder="自動" step="any">
+                </div>
+                <div class="axis-range-row">
+                    <label>Flow / TDS 左軸</label>
+                    <input type="number" id="axisFlowMin" placeholder="自動" step="any">
+                    <span>~</span>
+                    <input type="number" id="axisFlowMax" placeholder="自動" step="any">
+                </div>
+                <div class="axis-range-row">
+                    <label>溫度右軸（℃）</label>
+                    <input type="number" id="axisTempMin" placeholder="0" step="any">
+                    <span>~</span>
+                    <input type="number" id="axisTempMax" placeholder="90" step="any">
+                </div>
+                <div class="axis-range-hint">留空 = 自動；輸入即時套用</div>
+                <button class="axis-reset-btn" id="axisRangeResetBtn">↺ 全部回自動</button>
+            </div>
+        </div>
+        <div class="control-section">
+            <button class="export-btn" id="exportChartBtn">🖼 輸出項目 ▾</button>
+            <div class="export-options" id="exportChartOptions" style="display:none;">
+                <div class="control-item">
+                    <input type="checkbox" id="exportWeightChart" checked>
+                    <label for="exportWeightChart">Weight 圖</label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="exportFlowChart" checked>
+                    <label for="exportFlowChart">Flow / TDS 圖</label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="exportCombinedChart">
+                    <label for="exportCombinedChart">兩張合併成一張</label>
+                </div>
+                <div class="export-hint">圖片下方會附上各資料集的顏色對照；勾選兩項以上會打包成 ZIP</div>
+                <button class="export-confirm-btn" id="exportChartConfirmBtn">⬇ 下載 PNG</button>
+            </div>
+        </div>
     </div>
 </div>

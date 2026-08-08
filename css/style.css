@@ -358,23 +358,29 @@ h1 {
     flex-direction: column;
 }
 
-/* 資料集管理 — absorbs the leftover height */
+/* 資料集管理 — absorbs the leftover height.
+   min-height stays at flexbox's `auto` default on purpose: once the sections
+   below it (顯示選項 + 圖表儲存, the latter tall while its options are open)
+   claim more room than the panel has, this section must stop shrinking at its
+   own content height and let the panel scroll — forcing min-height:0 instead
+   let its buttons spill out and overlap the section underneath. */
 .control-panel > .control-section:first-of-type {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
-    min-height: 0;
 }
 
-/* 顯示選項 — never shrinks */
-.control-panel > .control-section:last-of-type {
+/* 顯示選項 / 圖表儲存 — never shrink */
+.control-panel > .control-section:not(:first-of-type) {
     flex: 0 0 auto;
 }
 
-/* The dataset list is what scrolls once space runs out */
+/* The dataset list is what scrolls once space runs out. The cap keeps a long
+   list from pushing 顯示選項 / 圖表儲存 down the panel. */
 #datasetList {
     flex: 1 1 auto;
     min-height: 92px;
+    max-height: 170px;
     overflow-y: auto;
 }
 
@@ -507,6 +513,84 @@ h1 {
 .import-btn:hover { background: var(--accent-dark); }
 .folder-btn { background: var(--success); }
 .folder-btn:hover { background: #388E3C; }
+
+/* Axis range panel */
+.axis-btn { background: var(--primary); }
+.axis-btn:hover { background: var(--primary-dark); }
+.axis-range-panel { margin-top: 8px; }
+.axis-range-row {
+    display: grid;
+    grid-template-columns: 1fr 10px 1fr;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 7px;
+}
+.axis-range-row > label {
+    grid-column: 1 / -1;
+    font-size: 0.72em;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 1px;
+}
+.axis-range-row > span { text-align: center; color: var(--text-muted); font-size: 0.75em; }
+.axis-range-row input {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 6px;
+    font-size: 0.78em;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: white;
+}
+.axis-range-row input:focus { outline: none; border-color: var(--primary); }
+.axis-range-hint {
+    font-size: 0.72em;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 4px 0 8px;
+}
+.axis-reset-btn {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.8em;
+    touch-action: manipulation;
+}
+.axis-reset-btn:hover { background: #5a6268; }
+
+/* Chart export */
+.axis-btn,
+.export-btn, .export-confirm-btn {
+    display: block;
+    width: 100%;
+    padding: 9px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.85em;
+    touch-action: manipulation;
+}
+.export-btn { background: var(--secondary); }
+.export-btn:hover { background: #633f8a; }
+.export-options { margin-top: 8px; }
+.export-options .control-item { padding: 6px 8px; margin-bottom: 5px; }
+.export-options .control-item label { font-size: 0.82em; }
+.export-hint {
+    font-size: 0.72em;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 6px 0 8px;
+}
+.export-confirm-btn { background: var(--accent); }
+.export-confirm-btn:hover { background: var(--accent-dark); }
 
 .control-item {
     display: flex;

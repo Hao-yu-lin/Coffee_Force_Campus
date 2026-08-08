@@ -1,6 +1,8 @@
 import { AppState } from '../model/appState.js';
 import { DatasetModel } from '../model/datasetModel.js';
 import { initCharts, updateCharts, getChartInstances } from '../view/chartView.js';
+import { exportBrewingCharts } from '../view/chartExport.js';
+import { AXIS_RANGE_INPUT_IDS, resetAxisRanges } from '../view/axisRange.js';
 import { buildIntensityButtons, buildAffectiveGrid, initOverallSelects,
          initializeCATAPanels, initializeSCAPanels, toggleCVAPanel } from '../view/cvaView.js';
 import { bindTabButtons, toggleMobileDrawer } from '../view/tabView.js';
@@ -74,6 +76,49 @@ async function init() {
   DISPLAY_OPTION_IDS.forEach(id =>
     document.getElementById(id)?.addEventListener('change', refreshCharts)
   );
+
+  // 5a. Axis range overrides — typing redraws immediately
+  document.getElementById('axisRangeBtn')?.addEventListener('click', () => {
+    const box = document.getElementById('axisRangePanel');
+    const btn = document.getElementById('axisRangeBtn');
+    if (!box) return;
+    const open = box.style.display === 'none';
+    box.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '📐 座標軸範圍 ▴' : '📐 座標軸範圍 ▾';
+  });
+  // Placeholders spell out the temperature axis default so it stays in step
+  // with TEMP_AXIS_RANGE rather than repeating the numbers in the markup.
+  document.getElementById('axisTempMin')?.setAttribute('placeholder', TEMP_AXIS_RANGE.min);
+  document.getElementById('axisTempMax')?.setAttribute('placeholder', TEMP_AXIS_RANGE.max);
+  AXIS_RANGE_INPUT_IDS.forEach(id =>
+    document.getElementById(id)?.addEventListener('input', refreshCharts)
+  );
+  document.getElementById('axisRangeResetBtn')?.addEventListener('click', () => {
+    resetAxisRanges();
+    refreshCharts();
+  });
+
+  // 5b. Chart export
+  document.getElementById('exportChartBtn')?.addEventListener('click', () => {
+    const box = document.getElementById('exportChartOptions');
+    const btn = document.getElementById('exportChartBtn');
+    if (!box) return;
+    const open = box.style.display === 'none';
+    box.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '🖼 輸出項目 ▴' : '🖼 輸出項目 ▾';
+  });
+  document.getElementById('exportChartConfirmBtn')?.addEventListener('click', () => {
+    if (datasetModel.getVisible().length === 0) {
+      alert('⚠️ 目前沒有顯示中的資料集');
+      return;
+    }
+    const count = exportBrewingCharts({
+      weight:   document.getElementById('exportWeightChart')?.checked,
+      flow:     document.getElementById('exportFlowChart')?.checked,
+      combined: document.getElementById('exportCombinedChart')?.checked
+    }, datasetModel);
+    if (count === 0) alert('⚠️ 請至少勾選一項要儲存的圖表');
+  });
 
   // 5. Dataset control buttons
   document.querySelector('[data-action="select-all"]')

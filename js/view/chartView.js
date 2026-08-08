@@ -1,5 +1,7 @@
 // Uses globals: Chart (CDN)
 
+import { getAxisRanges } from './axisRange.js';
+
 let weightChart   = null;
 let flowTempChart = null;
 
@@ -528,8 +530,15 @@ export function updateCharts(datasetModel, displayOptions = {}) {
   const labels = longestDs.time;
   const maxTime = labels.length > 0 ? labels[labels.length - 1] : 0;
 
-  weightChart.options.scales.x.min = 0; weightChart.options.scales.x.max = maxTime;
-  flowTempChart.options.scales.x.min = 0; flowTempChart.options.scales.x.max = maxTime;
+  // Manual bounds from the 座標軸範圍 panel; each null field keeps the auto value
+  const axisRanges = getAxisRanges();
+
+  const xMin = axisRanges.x?.min ?? 0;
+  const xMax = axisRanges.x?.max ?? maxTime;
+  [weightChart, flowTempChart].forEach(chart => {
+    chart.options.scales.x.min = xMin;
+    chart.options.scales.x.max = xMax;
+  });
 
   // Build one Chart.js dataset per (dataset × series type).
   // Colour = which brew it is; line style/width = which measurement it is.
@@ -567,11 +576,32 @@ export function updateCharts(datasetModel, displayOptions = {}) {
   const axisValues = (datasets, axisId) =>
     datasets.filter(ds => ds.yAxisID === axisId).flatMap(ds => ds.data || []);
 
-  const applyRange = (scale, values) => {
-    const range = fitAxisRange(values, AXIS_FILL_RATIO);
-    if (range) { scale.min = range.min; scale.max = range.max; }
+  // Axis title names only the units actually drawn on it, so unticking Flow-W /
+  // Flow-C leaves "TDS" rather than a title promising flow that isn't there.
+  const axisTitle = (datasets, axisId) => {
+    const labels = [];
+    datasets.forEach(ds => {
+      if (ds.yAxisID !== axisId) return;
+      const text = SERIES_TYPES[ds.seriesKey]?.axisLabel;
+      if (text && !labels.includes(text)) labels.push(text);
+    });
+    return labels.join(' / ');
+  };
+
+  // Auto-fit first, then let whichever bounds the user typed win. The effective
+  // range is returned because yRatio is derived from the weight axis and has to
+  // track a manual override too.
+  const applyRange = (scale, values, override) => {
+    const fitted = fitAxisRange(values, AXIS_FILL_RATIO);
+    if (fitted) { scale.min = fitted.min; scale.max = fitted.max; }
     else { delete scale.min; delete scale.max; }
-    return range;
+
+    if (override?.min != null) scale.min = override.min;
+    if (override?.max != null) scale.max = override.max;
+
+    return (scale.min != null && scale.max != null)
+      ? { min: scale.min, max: scale.max }
+      : fitted;
   };
 
   // ── Weight chart ──────────────────────────────────────────────────────────
@@ -579,7 +609,7 @@ export function updateCharts(datasetModel, displayOptions = {}) {
   weightChart.data.labels   = labels;
   weightChart.data.datasets = weightDatasets;
 
-  const wRange = applyRange(weightChart.options.scales.y, axisValues(weightDatasets, 'y'));
+  const wRange = applyRange(weightChart.options.scales.y, axisValues(weightDatasets, 'y'), axisRanges.weight);
 
   // yRatio stays displayed to reserve the gutter the hover badges draw into
   const beanWeights = visible.map(d => parseFloat(d.beanWeight)).filter(bw => bw > 0 && isFinite(bw));
@@ -603,16 +633,24 @@ export function updateCharts(datasetModel, displayOptions = {}) {
   flowTempChart.data.labels   = labels;
   flowTempChart.data.datasets = ftDatasets;
 
-  applyRange(flowTempChart.options.scales.y, axisValues(ftDatasets, 'y'));
+  applyRange(flowTempChart.options.scales.y, axisValues(ftDatasets, 'y'), axisRanges.flow);
+
+  const leftTitle = axisTitle(ftDatasets, 'y');
+  flowTempChart.options.scales.y.title = leftTitle
+    ? { display: true, text: leftTitle }
+    : { display: false };
 
   // Right axis carries ℃ only while a temperature series is drawn; otherwise it
   // stays blank and merely reserves the gutter used by the hover badges.
+  // Unlike the other axes it is not auto-fitted — 0–100℃ is fixed so the same
+  // temperature always sits at the same height.
   const tempValues = axisValues(ftDatasets, 'yRight');
   const yRight = flowTempChart.options.scales.yRight;
   if (tempValues.length) {
-    applyRange(yRight, tempValues);
+    yRight.min = axisRanges.temp?.min ?? TEMP_AXIS_RANGE.min;
+    yRight.max = axisRanges.temp?.max ?? TEMP_AXIS_RANGE.max;
     yRight.ticks = { display: true };
-    yRight.title = { display: true, text: 'Temp (℃)' };
+    yRight.title = { display: true, text: axisTitle(ftDatasets, 'yRight') };
   } else {
     delete yRight.min; delete yRight.max;
     yRight.ticks = { display: false };

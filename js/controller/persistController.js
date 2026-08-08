@@ -1,5 +1,6 @@
 import { getFormValues, setFormValues } from '../view/formView.js';
 import { getDisplayOptions, setDisplayOptions } from '../view/displayOptions.js';
+import { getAxisRangeValues, setAxisRangeValues } from '../view/axisRange.js';
 import { collectDescriptiveState, collectAffectiveState,
          restoreDescriptiveState, restoreAffectiveState,
          collectCVAHeaderState } from '../view/cvaView.js';
@@ -59,6 +60,7 @@ function saveData() {
   const allDatasets   = _datasetModel.getAll();
   const allVisibility = _datasetModel.getAllVisibility();
   const displayOpts   = getDisplayOptions();
+  const axisRanges    = getAxisRangeValues();
   const distState     = getDistributionState();
   const timestamp     = makeTimestamp(now);
 
@@ -68,7 +70,8 @@ function saveData() {
   const buildFileObj = (id) => {
     const ds = allDatasets[id];
     return {
-      version:          5,
+      // 6 adds axisRanges; v5 files still load, they just fall back to auto
+      version:          6,
       schema:           'per-dataset',
       timestamp:        now.toISOString(),
       datasetId:        id,
@@ -80,6 +83,7 @@ function saveData() {
         recordTime:    formVals.recordTime,
       },
       displayOptions:   displayOpts,
+      axisRanges:       axisRanges,
       distributionState: distState,
     };
   };
@@ -130,7 +134,12 @@ function importJSONData(data) {
       setFormValues(restored);
     }
     if (data.displayOptions)    setDisplayOptions(data.displayOptions);
+    if (data.axisRanges)        setAxisRangeValues(data.axisRanges);
     if (data.distributionState) loadDistributionState(data.distributionState);
+    // loadDatasetParams() drew the charts before these were restored, so redraw
+    // to pick them up — otherwise a single-file import shows the saved options
+    // in the panel while the chart still uses the previous ones.
+    if (data.displayOptions || data.axisRanges) refreshViews();
 
   } else {
     if (data.name      !== undefined) setFormValues({ coffeeName:    data.name });
@@ -167,7 +176,9 @@ function importJSONData(data) {
     }
 
     if (data.displayOptions)    setDisplayOptions(data.displayOptions);
+    if (data.axisRanges)        setAxisRangeValues(data.axisRanges);
     if (data.distributionState) loadDistributionState(data.distributionState);
+    if (data.displayOptions || data.axisRanges) refreshViews();
   }
 }
 
