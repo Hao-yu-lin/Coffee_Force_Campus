@@ -7,6 +7,20 @@ function toPickerHex(color) {
   return /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#888888';
 }
 
+/**
+ * Open a colour input's picker.
+ * `.click()` is the usual trick for hidden inputs, but Chromium only honours it
+ * for type=file — for type=color a programmatic click is ignored outright, so
+ * showPicker() is the only thing that actually opens the dialog. It needs
+ * transient user activation, hence "call this straight from a click handler".
+ */
+function openColorPicker(input) {
+  try {
+    if (typeof input.showPicker === 'function') { input.showPicker(); return; }
+  } catch { /* no user activation — fall through */ }
+  input.click();
+}
+
 export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   const container = document.getElementById('datasetList');
   if (!container) return;
@@ -60,7 +74,7 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
       if (clickTimer !== null) {
         clearTimeout(clickTimer);
         clickTimer = null;
-        picker.click();
+        openColorPicker(picker);
         return;
       }
       clickTimer = setTimeout(() => {

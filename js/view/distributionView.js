@@ -537,7 +537,16 @@ export function renderDistDatasetList(particleModel, callbacks) {
       callbacks.onColorChange?.(id, picker.value);
     });
     dot.appendChild(picker);
-    dot.addEventListener('dblclick', e => { e.stopPropagation(); picker.click(); });
+    // showPicker(), not click(): Chromium ignores a programmatic click on a
+    // type=color input (unlike type=file). Needs transient user activation, so
+    // it has to run straight from the dblclick handler.
+    dot.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      try {
+        if (typeof picker.showPicker === 'function') { picker.showPicker(); return; }
+      } catch { /* no user activation — fall through */ }
+      picker.click();
+    });
 
     const lbl = document.createElement('div');
     lbl.className = 'dataset-label';
