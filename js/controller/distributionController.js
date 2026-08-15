@@ -170,6 +170,14 @@ function refreshChart() {
     onDelete(id) {
       particleModel.remove(id);
       refreshChart();
+    },
+    // Redraw the chart only — refreshChart() would rebuild the list and tear
+    // down the <input type="color"> the user still has open.
+    onColorChange(id, color) {
+      const ds = particleModel.get(id);
+      if (!ds) return;
+      ds.color = color;
+      updateDistributionChart(particleModel, getBinSettings());
     }
   });
 }

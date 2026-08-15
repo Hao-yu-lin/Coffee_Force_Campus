@@ -1,3 +1,12 @@
+// How long a single click on the colour swatch waits before acting, so a
+// second click can be recognised as "open the colour picker" instead.
+const DBLCLICK_MS = 220;
+
+/** input[type=color] only accepts #rrggbb — fall back rather than silently reset. */
+function toPickerHex(color) {
+  return /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#888888';
+}
+
 export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   const container = document.getElementById('datasetList');
   if (!container) return;
@@ -23,7 +32,42 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
     color.className = 'dataset-color';
     color.style.backgroundColor = ds.color;
     color.style.cursor = 'pointer';
-    color.onclick = e => { e.stopPropagation(); callbacks.onLoad(id); };
+    color.style.position = 'relative';
+    color.title = '點一下載入，連點兩下改顏色';
+
+    // Native picker, anchored to the swatch but invisible. It must stay in the
+    // DOM while the dialog is open, so the colour callbacks below deliberately
+    // avoid re-rendering this list.
+    const picker = document.createElement('input');
+    picker.type  = 'color';
+    picker.value = toPickerHex(ds.color);
+    picker.style.cssText = 'position:absolute;left:0;top:100%;width:0;height:0;padding:0;border:0;opacity:0;pointer-events:none;';
+    picker.onclick = e => e.stopPropagation();
+    picker.oninput = () => {
+      color.style.backgroundColor = picker.value;
+      item.style.borderLeftColor  = picker.value;
+      callbacks.onColorPreview?.(id, picker.value);
+    };
+    picker.onchange = () => callbacks.onColorCommit?.(id, picker.value);
+    color.appendChild(picker);
+
+    // A single click reloads the dataset, which re-renders this list and throws
+    // this node away — a native dblclick would never land on it. So hold the
+    // load briefly and treat a second click as "edit colour" instead.
+    let clickTimer = null;
+    color.onclick = e => {
+      e.stopPropagation();
+      if (clickTimer !== null) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        picker.click();
+        return;
+      }
+      clickTimer = setTimeout(() => {
+        clickTimer = null;
+        callbacks.onLoad(id);
+      }, DBLCLICK_MS);
+    };
 
     const lbl = document.createElement('div');
     lbl.className = 'dataset-label';

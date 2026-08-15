@@ -519,6 +519,25 @@ export function renderDistDatasetList(particleModel, callbacks) {
     const dot = document.createElement('div');
     dot.className = 'dataset-color';
     dot.style.backgroundColor = ds.color;
+    dot.style.cursor = 'pointer';
+    dot.style.position = 'relative';
+    dot.title = '連點兩下改顏色';
+
+    // Nothing else claims a click on this swatch, so a plain dblclick is enough.
+    // The picker stays in the DOM while open — the callbacks below redraw the
+    // chart only, never this list.
+    const picker = document.createElement('input');
+    picker.type  = 'color';
+    picker.value = /^#[0-9a-f]{6}$/i.test(ds.color) ? ds.color : '#888888';
+    picker.style.cssText = 'position:absolute;left:0;top:100%;width:0;height:0;padding:0;border:0;opacity:0;pointer-events:none;';
+    picker.addEventListener('click', e => e.stopPropagation());
+    picker.addEventListener('input', () => {
+      dot.style.backgroundColor  = picker.value;
+      item.style.borderLeftColor = picker.value;
+      callbacks.onColorChange?.(id, picker.value);
+    });
+    dot.appendChild(picker);
+    dot.addEventListener('dblclick', e => { e.stopPropagation(); picker.click(); });
 
     const lbl = document.createElement('div');
     lbl.className = 'dataset-label';

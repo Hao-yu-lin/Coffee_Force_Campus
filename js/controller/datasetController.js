@@ -61,11 +61,34 @@ export function refreshViews() {
   renderDatasetList(
     _datasetModel.getAll(), _datasetModel.getAllVisibility(),
     _appState.getActiveId(),
-    { onToggle: toggleDataset, onLoad: loadDatasetParams, onDelete: deleteDataset }
+    { onToggle: toggleDataset, onLoad: loadDatasetParams, onDelete: deleteDataset,
+      onColorPreview: previewDatasetColor, onColorCommit: commitDatasetColor }
   );
   renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset);
   renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
   updateCharts(_datasetModel, getDisplayOptions());
+}
+
+/**
+ * Live feedback while the colour dialog is open. Only the charts are redrawn —
+ * the swatch updates itself, and re-rendering the dataset list here would
+ * destroy the very <input type="color"> the user is dragging in.
+ */
+export function previewDatasetColor(id, color) {
+  const ds = _datasetModel.get(id);
+  if (!ds) return;
+  ds.color = color;
+  updateCharts(_datasetModel, getDisplayOptions());
+}
+
+/** Colour settled — resync the panels that also show it (all outside #datasetList). */
+export function commitDatasetColor(id, color) {
+  const ds = _datasetModel.get(id);
+  if (!ds) return;
+  ds.color = color;
+  updateCharts(_datasetModel, getDisplayOptions());
+  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset);
+  renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
 }
 
 export function loadDatasetParams(datasetId) {
