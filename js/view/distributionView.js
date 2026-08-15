@@ -13,6 +13,38 @@ let _bandZoneMode    = 'percent'; // 'percent' | 'diameter'
 let _selectedBandIdx = null; // visible-dataset index selected by click (null = none)
 let _isMultiMode     = false; // true when 2+ datasets are visible
 
+// ── Hover highlight state ──────────────────────────────────────────────────────
+// Set while the pointer is over a row in the dataset list; the matching series
+// is drawn thicker so it can be picked out among overlapping lines.
+let _hoveredDatasetId = null;
+
+const HOVER_LINE_WIDTH   = 5;
+const HOVER_POINT_RADIUS = 5;
+const HOVER_BAR_WIDTH    = 3;
+
+/** Thicken the series belonging to `_hoveredDatasetId`, restore all others. */
+function applyHoverHighlight() {
+  if (!distributionChart) return;
+
+  for (const d of distributionChart.data.datasets) {
+    const on = _hoveredDatasetId !== null && d._dsId === _hoveredDatasetId;
+    if (d.type === 'line') {
+      d.borderWidth = on ? HOVER_LINE_WIDTH   : d._baseBorderWidth;
+      d.pointRadius = on ? HOVER_POINT_RADIUS : d._basePointRadius;
+    } else {
+      d.borderWidth = on ? HOVER_BAR_WIDTH    : d._baseBorderWidth;
+    }
+  }
+  distributionChart.update('none');
+}
+
+/** @param {string|null} id  particle dataset id, or null to clear the highlight */
+function setHoveredDataset(id) {
+  if (_hoveredDatasetId === id) return;
+  _hoveredDatasetId = id;
+  applyHoverHighlight();
+}
+
 // ── Zone band helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -414,6 +446,8 @@ export function updateDistributionChart(
       }
       chartDatasets.push({
         _modelIdx: di,          // custom prop: lets onClick identify which dataset was clicked
+        _dsId: ds.id,           // custom prop: lets the dataset-list hover find this series
+        _baseBorderWidth: 1,
         type: 'bar',
         label: `${ds.name} %`,
         data: percents,
@@ -428,6 +462,9 @@ export function updateDistributionChart(
     if (showCumulative) {
       chartDatasets.push({
         _modelIdx: di,          // same model index for the paired cumulative line
+        _dsId: ds.id,
+        _baseBorderWidth: 2,
+        _basePointRadius: 3,
         type: 'line',
         label: `${ds.name} cum%`,
         data: cumPercents,
@@ -441,6 +478,8 @@ export function updateDistributionChart(
       });
     }
   });
+
+  _hoveredDatasetId = null;   // the list is re-rendered alongside, so drop any stale highlight
 
   distributionChart.data.labels   = labels;
   distributionChart.data.datasets = chartDatasets;
@@ -461,6 +500,11 @@ export function renderDistDatasetList(particleModel, callbacks) {
     const item = document.createElement('div');
     item.className = `dataset-item${isVisible ? '' : ' disabled'}`;
     item.style.borderLeftColor = ds.color;
+    item.title = ds.name;   // names are ellipsised in the list — show the full one on hover
+
+    // Hovering a row thickens that dataset's line in the chart
+    item.addEventListener('mouseenter', () => setHoveredDataset(id));
+    item.addEventListener('mouseleave', () => setHoveredDataset(null));
 
     const cb = document.createElement('input');
     cb.type = 'checkbox';
