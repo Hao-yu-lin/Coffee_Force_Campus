@@ -16,28 +16,60 @@ const particleModel = new ParticleModel();
 // Default palette for new zones (cycles when user keeps adding)
 const ZONE_PALETTE = ['#57bb5e', '#e8a838', '#d95f5f', '#6b9bd2', '#a07cc5', '#e8826a'];
 
-// Each zone: { from: number (0–100), to: number (0–100), color: string }
-// zones must be sorted, zones[0].from === 0, zones[last].to === 100
-let zones = [
-  { from: 0,  to: 25,  color: '#57bb5e' },
-  { from: 25, to: 75,  color: '#e8a838' },
-  { from: 75, to: 100, color: '#d95f5f' },
-];
+// Two independent zone sets, one per colouring mode. Switching the dropdown
+// only swaps which set is active — each keeps its own boundaries and colours.
+//
+// percent  → { from, to } are cumulative % (0–100); zones[last].to === 100
+// diameter → { from, to } are µm; zones[last].to === Infinity (open-ended)
+// Both must stay sorted with zones[0].from === 0.
+const zoneSets = {
+  percent: [
+    { from: 0,  to: 25,  color: '#57bb5e' },
+    { from: 25, to: 75,  color: '#e8a838' },
+    { from: 75, to: 100, color: '#d95f5f' },
+  ],
+  diameter: [
+    { from: 0,   to: 400,      color: '#57bb5e' },
+    { from: 400, to: 800,      color: '#e8a838' },
+    { from: 800, to: Infinity, color: '#d95f5f' },
+  ],
+};
+
+let zoneMode = 'percent';
+
+function activeZones() {
+  return zoneSets[zoneMode];
+}
+
+/** Upper bound of the whole scale — 100 for %, open-ended for diameter. */
+function zoneScaleMax() {
+  return zoneMode === 'diameter' ? Infinity : 100;
+}
+
+/** Step used when splitting the last zone to create a new one. */
+function zoneSplitStep() {
+  return zoneMode === 'diameter'
+    ? (parseFloat(document.getElementById('distInterval')?.value) || 100)
+    : 0;
+}
 
 function renderZoneList() {
   const container = document.getElementById('zoneList');
   if (!container) return;
   container.innerHTML = '';
 
+  const zones = activeZones();
+  const unit  = zoneMode === 'diameter' ? 'µm' : '%';
+
   zones.forEach((zone, i) => {
     const isLast = i === zones.length - 1;
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:4px;margin:3px 0;font-size:12px;';
 
-    // "from%" label — always read-only
+    // "from" label — always read-only
     const fromSpan = document.createElement('span');
-    fromSpan.textContent = zone.from + '%';
-    fromSpan.style.cssText = 'min-width:28px;text-align:right;color:#888;flex-shrink:0;';
+    fromSpan.textContent = zone.from + unit;
+    fromSpan.style.cssText = 'min-width:38px;text-align:right;color:#888;flex-shrink:0;';
     row.appendChild(fromSpan);
 
     const arrow = document.createElement('span');
@@ -45,22 +77,28 @@ function renderZoneList() {
     arrow.style.cssText = 'color:#aaa;flex-shrink:0;';
     row.appendChild(arrow);
 
-    // "to" — input for all zones except the last (always 100%)
+    // "to" — input for all zones except the last (100% / open-ended)
     if (isLast) {
       const toSpan = document.createElement('span');
-      toSpan.textContent = '100%';
-      toSpan.style.cssText = 'min-width:42px;color:#888;flex-shrink:0;';
+      toSpan.textContent = Number.isFinite(zone.to) ? zone.to + unit : '∞';
+      toSpan.style.cssText = 'min-width:44px;color:#888;flex-shrink:0;';
       row.appendChild(toSpan);
     } else {
+      // Upper limit: next boundary, or the scale max for the second-to-last row
+      const nextTo = Number.isFinite(zones[i + 1].to) ? zones[i + 1].to : zoneScaleMax();
+      const upper  = Number.isFinite(nextTo) ? nextTo - 1 : Infinity;
+
       const toInput = document.createElement('input');
       toInput.type = 'number';
       toInput.value = zone.to;
       toInput.min = zone.from + 1;
-      toInput.max = zones[i + 1].to - 1;
-      toInput.style.cssText = 'width:44px;padding:1px 3px;font-size:12px;text-align:center;';
+      if (Number.isFinite(upper)) toInput.max = upper;
+      toInput.step = zoneMode === 'diameter' ? 10 : 1;
+      toInput.style.cssText = 'width:52px;padding:1px 3px;font-size:12px;text-align:center;';
       toInput.addEventListener('change', () => {
         let val = Math.round(parseFloat(toInput.value));
-        val = Math.max(zone.from + 1, Math.min(zones[i + 1].to - 1, val));
+        if (!Number.isFinite(val)) val = zone.to;
+        val = Math.max(zone.from + 1, Math.min(upper, val));
         toInput.value = val;
         zones[i].to       = val;
         zones[i + 1].from = val;
@@ -69,10 +107,10 @@ function renderZoneList() {
       });
       row.appendChild(toInput);
 
-      const pctSpan = document.createElement('span');
-      pctSpan.textContent = '%';
-      pctSpan.style.cssText = 'color:#888;flex-shrink:0;';
-      row.appendChild(pctSpan);
+      const unitSpan = document.createElement('span');
+      unitSpan.textContent = unit;
+      unitSpan.style.cssText = 'color:#888;flex-shrink:0;';
+      row.appendChild(unitSpan);
     }
 
     // Color picker
@@ -94,9 +132,9 @@ function renderZoneList() {
       delBtn.style.cssText = 'padding:1px 6px;font-size:12px;border:1px solid #ddd;border-radius:3px;background:#fff;color:#888;cursor:pointer;flex-shrink:0;';
       delBtn.addEventListener('click', () => {
         if (i < zones.length - 1) {
-          zones[i + 1].from = zones[i].from;   // next zone absorbs this one's start
+          zones[i + 1].from = zones[i].from;      // next zone absorbs this one's start
         } else {
-          zones[i - 1].to = 100;                // previous zone extends to end
+          zones[i - 1].to = zoneScaleMax();       // previous zone extends to end
         }
         zones.splice(i, 1);
         renderZoneList();
@@ -118,7 +156,8 @@ function getBinSettings() {
   const interval     = parseFloat(document.getElementById('distInterval')?.value) || 100;
   const showBars     = document.getElementById('showDistBars')?.checked ?? true;
   const showCumulative = document.getElementById('showDistCumulative')?.checked ?? true;
-  return { mode, xMin, xMax, interval, showBars, showCumulative, zones };
+  return { mode, xMin, xMax, interval, showBars, showCumulative,
+           zones: activeZones(), zoneMode };
 }
 
 function refreshChart() {
@@ -137,6 +176,10 @@ function refreshChart() {
 
 // ── Persist helpers (called by persistController) ────────────────────────────
 
+// JSON has no Infinity — the open-ended diameter bound round-trips as null.
+const serializeZones   = zs => zs.map(z => ({ ...z, to: Number.isFinite(z.to) ? z.to : null }));
+const deserializeZones = zs => zs.map(z => ({ ...z, to: z.to === null || z.to === undefined ? Infinity : z.to }));
+
 /**
  * Snapshot the full distribution state for saving.
  * Returns a plain-object safe for JSON serialisation.
@@ -145,7 +188,12 @@ export function getDistributionState() {
   return {
     datasets:   particleModel.getAll(),
     visibility: particleModel.getAllVisibility(),
-    zones:      JSON.parse(JSON.stringify(zones)),   // deep copy
+    zoneMode,
+    zoneSets: {
+      percent:  serializeZones(zoneSets.percent),
+      diameter: serializeZones(zoneSets.diameter),
+    },
+    zones: serializeZones(zoneSets.percent),   // legacy field, read by older builds
     settings: {
       mode:            document.getElementById('distMode')?.value              ?? 'diameter',
       xMin:            parseFloat(document.getElementById('distXMin')?.value)  || 200,
@@ -170,11 +218,19 @@ export function loadDistributionState(state) {
   }
 
   // 2. Restore zone definitions (mutate in-place so renderZoneList sees the update)
-  if (Array.isArray(state.zones) && state.zones.length) {
-    zones.length = 0;
-    state.zones.forEach(z => zones.push({ ...z }));
-    renderZoneList();
-  }
+  const restoreSet = (key, saved) => {
+    if (!Array.isArray(saved) || !saved.length) return;
+    zoneSets[key].length = 0;
+    deserializeZones(saved).forEach(z => zoneSets[key].push(z));
+  };
+  restoreSet('percent',  state.zoneSets?.percent ?? state.zones);   // pre-zoneSets files
+  restoreSet('diameter', state.zoneSets?.diameter);
+
+  // Files saved before the mode dropdown existed are always percent-based
+  zoneMode = state.zoneMode === 'diameter' ? 'diameter' : 'percent';
+  const modeSel = document.getElementById('zoneMode');
+  if (modeSel) modeSel.value = zoneMode;
+  renderZoneList();
 
   // 3. Restore UI settings
   const s = state.settings;
@@ -283,20 +339,31 @@ export function init() {
   document.getElementById('showDistBars')?.addEventListener('change', refreshChart);
   document.getElementById('showDistCumulative')?.addEventListener('change', refreshChart);
 
-  // 9. Zone list + add-zone button
-  renderZoneList();
-  document.getElementById('addZoneBtn')?.addEventListener('click', () => {
-    // Split the last zone at its midpoint to create a new zone
-    const last = zones[zones.length - 1];
-    const mid  = Math.round((last.from + last.to) / 2);
-    if (mid <= last.from || mid >= last.to) return;   // zone too narrow to split
-    const newColor = ZONE_PALETTE[zones.length % ZONE_PALETTE.length];
-    zones.splice(zones.length - 1, 0, { from: last.from, to: mid, color: newColor });
-    zones[zones.length - 1].from = mid;
+  // 9. Zone mode selector
+  document.getElementById('zoneMode')?.addEventListener('change', e => {
+    zoneMode = e.target.value === 'diameter' ? 'diameter' : 'percent';
     renderZoneList();
     refreshChart();
   });
 
-  // 10. Initial render
+  // 10. Zone list + add-zone button
+  renderZoneList();
+  document.getElementById('addZoneBtn')?.addEventListener('click', () => {
+    // Split the last zone to create a new one: at its midpoint when bounded
+    // (percent), or one bin-interval past its start when open-ended (diameter).
+    const zones = activeZones();
+    const last  = zones[zones.length - 1];
+    const cut   = Number.isFinite(last.to)
+      ? Math.round((last.from + last.to) / 2)
+      : Math.round(last.from + zoneSplitStep());
+    if (cut <= last.from || cut >= last.to) return;   // zone too narrow to split
+    const newColor = ZONE_PALETTE[zones.length % ZONE_PALETTE.length];
+    zones.splice(zones.length - 1, 0, { from: last.from, to: cut, color: newColor });
+    zones[zones.length - 1].from = cut;
+    renderZoneList();
+    refreshChart();
+  });
+
+  // 11. Initial render
   refreshChart();
 }

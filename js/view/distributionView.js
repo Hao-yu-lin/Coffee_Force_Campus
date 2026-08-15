@@ -4,56 +4,76 @@
 let distributionChart = null;
 
 // ── Zone band state ────────────────────────────────────────────────────────────
-// Each entry: { color, fromIdx, toIdx, zoneFrom, zoneTo }
+// Each entry: { color, fromIdx, toIdx, label }
 let _zoneBands       = [];
 let _bandCumPercents = [];   // cumPercents per visible dataset (in order)
+let _bandMidDiams    = [];   // per-bin representative diameter (µm), shared by all datasets
 let _bandZones       = [];   // current zones array
-let _selectedBandIdx = null; // visible-dataset index selected by click (null = average)
+let _bandZoneMode    = 'percent'; // 'percent' | 'diameter'
+let _selectedBandIdx = null; // visible-dataset index selected by click (null = none)
 let _isMultiMode     = false; // true when 2+ datasets are visible
 
 // ── Zone band helpers ──────────────────────────────────────────────────────────
 
-/** Return the zone object {from, to, color} that bin i belongs to. */
-function _zoneForBin(binIdx, cumPercents, zones) {
-  if (!zones.length) return null;
-  const prev   = binIdx === 0 ? 0 : cumPercents[binIdx - 1];
-  const midCum = (prev + cumPercents[binIdx]) / 2;
+/**
+ * Return the zone object {from, to, color} a value falls into.
+ * Zones are sorted ascending; the last one is always the catch-all.
+ */
+function _zoneForValue(value, zones) {
+  if (!zones || !zones.length) return null;
   for (let j = 0; j < zones.length - 1; j++) {
-    if (midCum < zones[j].to) return zones[j];
+    if (value < zones[j].to) return zones[j];
   }
   return zones[zones.length - 1];
 }
 
-/** Rebuild _zoneBands from the currently selected cumPercents. */
-function _rebuildBands() {
-  if (!_bandZones.length || !_bandCumPercents.length) { _zoneBands = []; return; }
+/** Midpoint of each bin's cumulative-% span — the value a percent zone is matched against. */
+function _midCums(cumPercents) {
+  return cumPercents.map((c, i) => ((i === 0 ? 0 : cumPercents[i - 1]) + c) / 2);
+}
 
-  // No dataset selected → no background bands
-  if (_selectedBandIdx === null) { _zoneBands = []; return; }
-
-  // Reference cumPercents: selected dataset only
-  let refCum;
-  if (_bandCumPercents[_selectedBandIdx]) {
-    refCum = _bandCumPercents[_selectedBandIdx];
-  } else {
-    _zoneBands = []; return;
+/** Human-readable range label drawn inside a band. */
+function _zoneLabel(zone, zoneMode) {
+  if (zoneMode === 'diameter') {
+    return Number.isFinite(zone.to) ? `${zone.from}–${zone.to}µm` : `${zone.from}µm+`;
   }
+  return `${zone.from}–${zone.to}%`;
+}
+
+/**
+ * Per-bin values the zones are matched against, for the current zone mode.
+ * 'diameter' → bin midpoint diameter (identical for every dataset)
+ * 'percent'  → midpoint of the selected dataset's cumulative-% span
+ */
+function _bandValues() {
+  if (_bandZoneMode === 'diameter') return _bandMidDiams;
+  if (_selectedBandIdx === null) return null;   // no dataset selected → no bands
+  const cum = _bandCumPercents[_selectedBandIdx];
+  return cum ? _midCums(cum) : null;
+}
+
+/** Rebuild _zoneBands from the current zone mode + selection. */
+function _rebuildBands() {
+  _zoneBands = [];
+  if (!_bandZones.length) return;
+
+  const values = _bandValues();
+  if (!values || !values.length) return;
 
   // Group consecutive same-zone bins into bands
-  _zoneBands = [];
-  let curZone  = _zoneForBin(0, refCum, _bandZones);
+  let curZone   = _zoneForValue(values[0], _bandZones);
   let bandStart = 0;
-  for (let i = 1; i < refCum.length; i++) {
-    const z = _zoneForBin(i, refCum, _bandZones);
+  for (let i = 1; i < values.length; i++) {
+    const z = _zoneForValue(values[i], _bandZones);
     if (z !== curZone) {
       _zoneBands.push({ color: curZone.color, fromIdx: bandStart, toIdx: i - 1,
-                        zoneFrom: curZone.from, zoneTo: curZone.to });
+                        label: _zoneLabel(curZone, _bandZoneMode) });
       curZone   = z;
       bandStart = i;
     }
   }
-  _zoneBands.push({ color: curZone.color, fromIdx: bandStart, toIdx: refCum.length - 1,
-                    zoneFrom: curZone.from, zoneTo: curZone.to });
+  _zoneBands.push({ color: curZone.color, fromIdx: bandStart, toIdx: values.length - 1,
+                    label: _zoneLabel(curZone, _bandZoneMode) });
 }
 
 // ── Zone band plugin ───────────────────────────────────────────────────────────
@@ -69,7 +89,7 @@ const zoneBandPlugin = {
     const binW = width / labels.length;
     const ctx  = chart.ctx;
 
-    _zoneBands.forEach(({ color, fromIdx, toIdx, zoneFrom, zoneTo }, i) => {
+    _zoneBands.forEach(({ color, fromIdx, toIdx, label }, i) => {
       const x0 = left + fromIdx * binW;
       const x1 = left + (toIdx + 1) * binW;
 
@@ -79,13 +99,13 @@ const zoneBandPlugin = {
       ctx.fillRect(x0, top, x1 - x0, bottom - top);
       ctx.restore();
 
-      // Zone range label centred inside the band (e.g. "25–75%")
+      // Zone range label centred inside the band (e.g. "25–75%" / "400–800µm")
       ctx.save();
       ctx.font          = 'bold 10px sans-serif';
       ctx.fillStyle     = color + 'BB';
       ctx.textAlign     = 'center';
       ctx.textBaseline  = 'top';
-      ctx.fillText(`${zoneFrom}–${zoneTo}%`, (x0 + x1) / 2, top + 4);
+      ctx.fillText(label, (x0 + x1) / 2, top + 4);
       ctx.restore();
 
       // Dashed boundary line (skip the very first band)
@@ -103,7 +123,7 @@ const zoneBandPlugin = {
 
   // Draws a highlight frame around the selected dataset's bar legend item.
   afterDraw(chart) {
-    if (_selectedBandIdx === null || !_isMultiMode) return;
+    if (_selectedBandIdx === null || !_isMultiMode || _bandZoneMode !== 'percent') return;
 
     const legend = chart.legend;
     const items  = legend?.legendItems;
@@ -237,23 +257,21 @@ function computeBinsWeight(diameters, edges) {
 }
 
 /**
- * Return the zone color for a given bin based on its cumulative % midpoint.
- * Zones are sorted ascending; we iterate until midCum < zone.to.
- * The last zone is always the catch-all.
- * @param {number} binIndex
- * @param {number[]} cumPercents  - cumulative % array (same length as bins)
- * @param {Array<{from,to,color}>} zones
- * @returns {string|null}  hex color, or null if zones is empty
+ * Representative diameter (µm) of each bin, in bin order.
+ * The two overflow bins (`<xMin`, `>xMax`) get a value half an interval past
+ * their edge so they always land in the outermost zones.
+ * @param {number[]} edges
+ * @returns {number[]}  length === edges.length + 1 (matches the bin count)
  */
-function getZoneColor(binIndex, cumPercents, zones) {
-  if (!zones || !zones.length) return null;
-  const prev   = binIndex === 0 ? 0 : cumPercents[binIndex - 1];
-  const curr   = cumPercents[binIndex];
-  const midCum = (prev + curr) / 2;
-  for (let j = 0; j < zones.length - 1; j++) {
-    if (midCum < zones[j].to) return zones[j].color;
-  }
-  return zones[zones.length - 1].color;
+function binMidDiameters(edges) {
+  const xMin     = edges[0];
+  const xMax     = edges[edges.length - 1];
+  const interval = edges.length > 1 ? edges[1] - edges[0] : 0;
+
+  const mids = [xMin - interval / 2];
+  for (let i = 0; i < edges.length - 1; i++) mids.push((edges[i] + edges[i + 1]) / 2);
+  mids.push(xMax + interval / 2);
+  return mids;
 }
 
 // ── Exported functions ────────────────────────────────────────────────────────
@@ -264,8 +282,8 @@ export function initDistributionChart() {
     distributionChart = null;
   }
   // Reset all band state when chart is recreated
-  _zoneBands = []; _bandCumPercents = []; _bandZones = [];
-  _selectedBandIdx = null; _isMultiMode = false;
+  _zoneBands = []; _bandCumPercents = []; _bandMidDiams = []; _bandZones = [];
+  _bandZoneMode = 'percent'; _selectedBandIdx = null; _isMultiMode = false;
 
   const canvas = document.getElementById('distributionChart');
   if (!canvas) return;
@@ -279,6 +297,7 @@ export function initDistributionChart() {
       maintainAspectRatio: false,
       onClick(event, elements) {
         if (!_isMultiMode) return;   // single-dataset: bars already zone-coloured, no interaction needed
+        if (_bandZoneMode === 'diameter') return;   // diameter bands are data-independent — nothing to pick
         if (!elements.length) {
           _selectedBandIdx = null;   // click empty area → reset to average
         } else {
@@ -325,7 +344,7 @@ export function initDistributionChart() {
 export function updateDistributionChart(
   particleModel,
   { mode = 'diameter', xMin = 200, xMax = 1200, interval = 100,
-    showBars = true, showCumulative = true, zones = [] } = {}
+    showBars = true, showCumulative = true, zones = [], zoneMode = 'percent' } = {}
 ) {
   if (!distributionChart) return;
 
@@ -347,14 +366,21 @@ export function updateDistributionChart(
     ).cumPercents;
   });
 
+  // ── Per-bin diameter values (shared by all datasets) ───────────────────────
+  const midDiams = binMidDiameters(edges);
+
   // ── Cache state for click-handler reuse ────────────────────────────────────
   _bandCumPercents = allCumPercents;
+  _bandMidDiams    = midDiams;
   _bandZones       = zones;
+  _bandZoneMode    = zoneMode;
   _selectedBandIdx = null;   // reset selection whenever data/settings change
 
   // ── Build initial zone bands (multi-dataset mode only) ────────────────────
+  // percent mode starts blank until a dataset is clicked; diameter mode is
+  // dataset-independent so its bands show right away.
   if (isMulti && zones.length) {
-    _rebuildBands();          // uses average since _selectedBandIdx is null
+    _rebuildBands();
   } else {
     _zoneBands = [];
   }
@@ -377,8 +403,10 @@ export function updateDistributionChart(
       let bgColors, borderColors;
       if (!isMulti && zones.length) {
         // Single dataset: each bar takes its zone colour
-        bgColors     = percents.map((_, i) => (getZoneColor(i, cumPercents, zones) ?? ds.color) + 'AA');
-        borderColors = percents.map((_, i) =>  getZoneColor(i, cumPercents, zones) ?? ds.color);
+        const vals   = zoneMode === 'diameter' ? midDiams : _midCums(cumPercents);
+        const colors = vals.map(v => _zoneForValue(v, zones)?.color ?? ds.color);
+        bgColors     = colors.map(c => c + 'AA');
+        borderColors = colors;
       } else {
         // Multiple datasets: use dataset colour so each series is identifiable
         bgColors     = ds.color + '99';
