@@ -145,7 +145,7 @@ async function init() {
   initPersistController(appState, datasetModel);
   initCvaController(appState);
   initDistributionController();
-  initPlaybackController();
+  initPlaybackController(datasetModel);
 
   // 10. CVA panel toggle buttons
   document.querySelectorAll('[data-toggle-panel]').forEach(btn =>

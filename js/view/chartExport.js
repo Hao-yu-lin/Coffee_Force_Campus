@@ -7,7 +7,7 @@ import { getChartInstances } from './chartView.js';
 
 const LEGEND_TITLE = '資料集 (Data items)';
 
-function makeTimestamp(date) {
+export function makeTimestamp(date) {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   const hh = String(date.getHours()).padStart(2, '0');
@@ -70,11 +70,17 @@ function drawLegend(ctx, rows, x, y, s, rowH) {
 }
 
 /**
- * Compose one or more chart canvases plus the dataset legend onto a new canvas.
+ * Build a reusable compositor for the given chart canvases plus dataset legend.
+ *
+ * The layout is measured once and `paint()` redraws whatever the source canvases
+ * currently hold into the same output canvas — that is what the video recorder
+ * needs, one call per frame. A still export just paints once and keeps `canvas`.
+ *
  * @param {HTMLCanvasElement[]} sources
  * @param {{name:string,color:string}[]} entries
+ * @returns {{canvas: HTMLCanvasElement, paint: () => void}}
  */
-function composeImage(sources, entries) {
+export function createChartCompositor(sources, entries) {
   const s = canvasScale(sources[0]);
   const pad       = Math.round(20 * s);
   const chartGap  = Math.round(14 * s);
@@ -96,46 +102,54 @@ function composeImage(sources, entries) {
     : 0;
 
   const out = document.createElement('canvas');
-  out.width  = innerWidth + pad * 2;
-  out.height = chartsH + legendH + pad * 2;
+  // H.264 rejects odd dimensions, so round up — harmless for the PNG path.
+  out.width  = (innerWidth + pad * 2 + 1) & ~1;
+  out.height = (chartsH + legendH + pad * 2 + 1) & ~1;
   const ctx = out.getContext('2d');
 
-  // Chart.js leaves the canvas transparent — without this the PNG shows as
-  // black wherever it is pasted onto a dark background.
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, out.width, out.height);
+  function paint() {
+    // Chart.js leaves the canvas transparent — without this the PNG shows as
+    // black wherever it is pasted onto a dark background.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, out.width, out.height);
 
-  let y = pad;
-  sources.forEach(c => {
-    ctx.drawImage(c, pad + (innerWidth - c.width) / 2, y);
-    y += c.height + chartGap;
-  });
-  y -= chartGap;
+    let y = pad;
+    sources.forEach(c => {
+      ctx.drawImage(c, pad + (innerWidth - c.width) / 2, y);
+      y += c.height + chartGap;
+    });
+    y -= chartGap;
 
-  if (rows.length) {
-    y += preRule;
-    ctx.strokeStyle = '#dddddd';
-    ctx.lineWidth = Math.max(1, Math.round(s));
-    ctx.beginPath();
-    ctx.moveTo(pad, y);
-    ctx.lineTo(out.width - pad, y);
-    ctx.stroke();
-    y += postRule;
+    if (rows.length) {
+      y += preRule;
+      ctx.strokeStyle = '#dddddd';
+      ctx.lineWidth = Math.max(1, Math.round(s));
+      ctx.beginPath();
+      ctx.moveTo(pad, y);
+      ctx.lineTo(out.width - pad, y);
+      ctx.stroke();
+      y += postRule;
 
-    ctx.font = legendFont(s, true);
-    ctx.fillStyle = '#555';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(LEGEND_TITLE, pad, y + titleH / 2);
-    y += titleH;
+      ctx.font = legendFont(s, true);
+      ctx.fillStyle = '#555';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(LEGEND_TITLE, pad, y + titleH / 2);
+      y += titleH;
 
-    drawLegend(ctx, rows, pad, y, s, rowH);
+      drawLegend(ctx, rows, pad, y, s, rowH);
+    }
   }
 
-  return out;
+  paint();
+  return { canvas: out, paint };
 }
 
-function downloadBlob(blob, filename) {
+function composeImage(sources, entries) {
+  return createChartCompositor(sources, entries).canvas;
+}
+
+export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url;

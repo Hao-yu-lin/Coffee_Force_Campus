@@ -543,6 +543,23 @@ h1 {
 }
 .playback-row input:focus { outline: none; border-color: var(--primary); }
 .playback-row > span { font-size: 0.75em; color: var(--text-muted); }
+.playback-record-btn {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.82em;
+    touch-action: manipulation;
+}
+.playback-record-btn:hover { background: var(--accent-dark); }
+.playback-btn:disabled,
+.playback-record-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .playback-hint {
     font-size: 0.72em;
     color: var(--text-muted);
