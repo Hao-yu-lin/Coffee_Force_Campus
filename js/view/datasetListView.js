@@ -1,6 +1,7 @@
-// How long a single click on the colour swatch waits before acting, so a
-// second click can be recognised as "open the colour picker" instead.
-const DBLCLICK_MS = 220;
+// Window for recognising a second click on the colour swatch. Matched to the
+// macOS default double-click speed — a tighter value silently turns an ordinary
+// double click into two single clicks.
+const DBLCLICK_MS = 500;
 
 /** input[type=color] only accepts #rrggbb — fall back rather than silently reset. */
 function toPickerHex(color) {
@@ -21,9 +22,46 @@ function openColorPicker(input) {
   input.click();
 }
 
+// Swatch clicks are handled on the list container, not on each swatch.
+// Loading a dataset re-renders the whole list, so a per-node handler would lose
+// its element between the two clicks of a double click. The container survives,
+// and pairing clicks by dataset id rather than node identity lets the first
+// click act immediately instead of being held back by a timer.
+let _callbacks   = null;
+let _lastSwatchId = null;
+let _lastSwatchTs = 0;
+
+function handleSwatchClick(e) {
+  const container = document.getElementById('datasetList');
+  const swatch = e.target.closest?.('.dataset-color');
+  if (!swatch || !container?.contains(swatch)) return;
+
+  const id  = swatch.dataset.dsId;
+  const now = performance.now();
+
+  if (_lastSwatchId === id && now - _lastSwatchTs <= DBLCLICK_MS) {
+    _lastSwatchId = null;
+    _lastSwatchTs = 0;
+    // `swatch` came from this click, so it is the freshly rendered node even
+    // though the first click rebuilt the list.
+    const picker = swatch.querySelector('input[type=color]');
+    if (picker) openColorPicker(picker);
+    return;
+  }
+
+  _lastSwatchId = id;
+  _lastSwatchTs = now;
+  _callbacks?.onLoad(id);
+}
+
 export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   const container = document.getElementById('datasetList');
   if (!container) return;
+  _callbacks = callbacks;
+  if (!container._swatchClickBound) {
+    container.addEventListener('click', handleSwatchClick);
+    container._swatchClickBound = true;
+  }
   container.innerHTML = '';
 
   Object.keys(datasets).reverse().forEach(id => {
@@ -44,6 +82,7 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
 
     const color = document.createElement('div');
     color.className = 'dataset-color';
+    color.dataset.dsId = id;          // how the delegated handler pairs the two clicks
     color.style.backgroundColor = ds.color;
     color.style.cursor = 'pointer';
     color.style.position = 'relative';
@@ -65,23 +104,7 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
     picker.onchange = () => callbacks.onColorCommit?.(id, picker.value);
     color.appendChild(picker);
 
-    // A single click reloads the dataset, which re-renders this list and throws
-    // this node away — a native dblclick would never land on it. So hold the
-    // load briefly and treat a second click as "edit colour" instead.
-    let clickTimer = null;
-    color.onclick = e => {
-      e.stopPropagation();
-      if (clickTimer !== null) {
-        clearTimeout(clickTimer);
-        clickTimer = null;
-        openColorPicker(picker);
-        return;
-      }
-      clickTimer = setTimeout(() => {
-        clickTimer = null;
-        callbacks.onLoad(id);
-      }, DBLCLICK_MS);
-    };
+    // No per-swatch click handler — handleSwatchClick on the container owns it.
 
     const lbl = document.createElement('div');
     lbl.className = 'dataset-label';
