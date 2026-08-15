@@ -5,6 +5,48 @@ import { getAxisRanges } from './axisRange.js';
 let weightChart   = null;
 let flowTempChart = null;
 
+// ── Playback state ───────────────────────────────────────────────────────────
+// null = the whole curve is shown. Otherwise the last label index that has been
+// reached; later points are withheld from the lines, the badges and the tooltip
+// so nothing from the future can be read off the chart.
+let playbackCutoff = null;
+
+// Assigned by initCharts — pulls a stale crosshair/pin back to the cutoff.
+let clampCrosshairToPlayback = () => {};
+
+/**
+ * Hide every point after `playbackCutoff`.
+ * Each dataset keeps its untouched values in `_fullData`, so the axes (already
+ * fitted against the full curve) stay put while the visible part grows.
+ */
+function applyPlaybackMask(chart) {
+  if (!chart) return;
+  chart.data.datasets.forEach(ds => {
+    const full = ds._fullData;
+    if (!full) return;
+    if (playbackCutoff === null || playbackCutoff >= full.length - 1) {
+      ds.data = full;
+      return;
+    }
+    const masked = full.slice(0, playbackCutoff + 1);
+    masked.length = full.length;   // trailing holes are simply not drawn
+    ds.data = masked;
+  });
+}
+
+/** Number of time steps on the x axis (0 when nothing is plotted). */
+export function getPlaybackFrameCount() {
+  return weightChart?.data?.labels?.length ?? 0;
+}
+
+/** @param {number|null} idx  last revealed label index, or null for the full curve */
+export function setPlaybackCutoff(idx) {
+  playbackCutoff = idx;
+  [weightChart, flowTempChart].forEach(chart => chart && applyPlaybackMask(chart));
+  clampCrosshairToPlayback();   // reads the fresh mask; only re-syncs on a rewind
+  [weightChart, flowTempChart].forEach(chart => chart?.update('none'));
+}
+
 const externalTooltipHandler = (context) => {
   const { chart, tooltip } = context;
   const isMobile = window.innerWidth <= 640;
@@ -138,6 +180,17 @@ export function initCharts(datasetModel, getCheckboxValues) {
   let crosshairIndex   = null;
   let isTooltipPinned  = false;
   let pinnedIndex      = null;
+
+  // Rewinding playback must not leave a crosshair sitting on a future second.
+  // The highlight has to be re-synced too: a later mousemove that clamps to the
+  // same index would be treated as "unchanged" and never refresh it.
+  clampCrosshairToPlayback = () => {
+    if (playbackCutoff === null) return;
+    let moved = false;
+    if (crosshairIndex !== null && crosshairIndex > playbackCutoff) { crosshairIndex = playbackCutoff; moved = true; }
+    if (pinnedIndex    !== null && pinnedIndex    > playbackCutoff) { pinnedIndex    = playbackCutoff; moved = true; }
+    if (moved && !isTooltipPinned) syncBothCharts(crosshairIndex, null, null);
+  };
 
   const pinnedMarkerPlugin = {
     id: 'pinnedMarker',
@@ -383,7 +436,9 @@ export function initCharts(datasetModel, getCheckboxValues) {
       return;
     }
     const ratio = (mouseX - chartArea.left) / (chartArea.right - chartArea.left);
-    const newIdx = Math.min(labels.length - 1, Math.max(0, Math.round(ratio * (labels.length - 1))));
+    let newIdx = Math.min(labels.length - 1, Math.max(0, Math.round(ratio * (labels.length - 1))));
+    // While playing, the cursor can reach at most the elapsed second
+    if (playbackCutoff !== null) newIdx = Math.min(newIdx, playbackCutoff);
     if (crosshairIndex !== newIdx) {
       crosshairIndex = newIdx;
       syncBothCharts(newIdx, chart, { x: mouseX, y: e.clientY - rect.top });
@@ -585,6 +640,7 @@ export function updateCharts(datasetModel, displayOptions = {}) {
           seriesLabel: spec.label,
           label: `${d.name} - ${spec.label}`,
           data,
+          _fullData: data,   // kept intact so playback can mask `data` without losing values
           beanWeight: parseFloat(d.beanWeight) || null,
           borderColor: d.color,
           backgroundColor: spec.fill ? `${d.color}22` : `${d.color}20`,
@@ -654,6 +710,7 @@ export function updateCharts(datasetModel, displayOptions = {}) {
     yRatio.ticks = { display: false };
     yRatio.title = { display: false };
   }
+  applyPlaybackMask(weightChart);   // after the axes are fitted against the full curve
   weightChart.update();
 
   // ── Flow / temperature chart ──────────────────────────────────────────────
@@ -684,6 +741,7 @@ export function updateCharts(datasetModel, displayOptions = {}) {
     yRight.ticks = { display: false };
     yRight.title = { display: false };
   }
+  applyPlaybackMask(flowTempChart);
   flowTempChart.update();
 }
 

@@ -13,6 +13,7 @@ import { init as initImportController } from './importController.js';
 import { init as initPersistController } from './persistController.js';
 import { init as initCvaController } from './cvaController.js';
 import { init as initDistributionController } from './distributionController.js';
+import { init as initPlaybackController } from './playbackController.js';
 
 const appState    = new AppState();
 const datasetModel = new DatasetModel();
@@ -144,6 +145,7 @@ async function init() {
   initPersistController(appState, datasetModel);
   initCvaController(appState);
   initDistributionController();
+  initPlaybackController();
 
   // 10. CVA panel toggle buttons
   document.querySelectorAll('[data-toggle-panel]').forEach(btn =>

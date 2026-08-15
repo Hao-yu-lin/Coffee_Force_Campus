@@ -514,6 +514,42 @@ h1 {
 .folder-btn { background: var(--success); }
 .folder-btn:hover { background: #388E3C; }
 
+/* Playback */
+.playback-row { display: flex; align-items: center; gap: 6px; }
+.playback-btn {
+    flex: 1;
+    padding: 8px;
+    background: var(--success);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.85em;
+    touch-action: manipulation;
+}
+.playback-btn:hover { background: #388E3C; }
+.playback-btn.playing { background: var(--accent); }
+.playback-btn.playing:hover { background: var(--accent-dark); }
+.playback-row input {
+    width: 56px;
+    min-width: 0;
+    padding: 6px;
+    font-size: 0.78em;
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: white;
+}
+.playback-row input:focus { outline: none; border-color: var(--primary); }
+.playback-row > span { font-size: 0.75em; color: var(--text-muted); }
+.playback-hint {
+    font-size: 0.72em;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 6px;
+}
+
 /* Axis range panel */
 .axis-btn { background: var(--primary); }
 .axis-btn:hover { background: var(--primary-dark); }

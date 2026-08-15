@@ -22,6 +22,19 @@
     <div class="control-panel" id="desktopControlPanel">
         <h3><b>圖表控制</b></h3>
         <div class="control-section">
+            <div class="section-title">播放</div>
+            <div class="playback-row">
+                <button class="playback-btn" id="playbackBtn">▶ 播放</button>
+                <input type="number" id="playbackDuration" value="10" min="0.5" step="1">
+                <span>秒</span>
+            </div>
+            <div class="control-item" style="margin-top:6px;">
+                <input type="checkbox" id="playbackLoop" checked>
+                <label for="playbackLoop">循環播放</label>
+            </div>
+            <div class="playback-hint">在指定秒數內從時間 0 跑到最後一秒；播放中游標只能查看已經過的時間。循環播放會一直重播到按下暫停為止</div>
+        </div>
+        <div class="control-section">
             <div class="section-title">資料集管理</div>
             <div class="dataset-controls">
                 <button class="dataset-btn" data-action="select-all">全選</button>
