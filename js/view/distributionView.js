@@ -521,9 +521,8 @@ export function renderDistDatasetList(particleModel, callbacks) {
     dot.style.backgroundColor = ds.color;
     dot.style.cursor = 'pointer';
     dot.style.position = 'relative';
-    dot.title = '連點兩下改顏色';
+    dot.title = '點一下改顏色';
 
-    // Nothing else claims a click on this swatch, so a plain dblclick is enough.
     // The picker stays in the DOM while open — the callbacks below redraw the
     // chart only, never this list.
     const picker = document.createElement('input');
@@ -539,8 +538,8 @@ export function renderDistDatasetList(particleModel, callbacks) {
     dot.appendChild(picker);
     // showPicker(), not click(): Chromium ignores a programmatic click on a
     // type=color input (unlike type=file). Needs transient user activation, so
-    // it has to run straight from the dblclick handler.
-    dot.addEventListener('dblclick', e => {
+    // it has to run straight from the click handler.
+    dot.addEventListener('click', e => {
       e.stopPropagation();
       try {
         if (typeof picker.showPicker === 'function') { picker.showPicker(); return; }

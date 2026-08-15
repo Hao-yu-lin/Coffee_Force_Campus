@@ -1,8 +1,3 @@
-// Window for recognising a second click on the colour swatch. Matched to the
-// macOS default double-click speed — a tighter value silently turns an ordinary
-// double click into two single clicks.
-const DBLCLICK_MS = 500;
-
 /** input[type=color] only accepts #rrggbb — fall back rather than silently reset. */
 function toPickerHex(color) {
   return /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#888888';
@@ -22,46 +17,9 @@ function openColorPicker(input) {
   input.click();
 }
 
-// Swatch clicks are handled on the list container, not on each swatch.
-// Loading a dataset re-renders the whole list, so a per-node handler would lose
-// its element between the two clicks of a double click. The container survives,
-// and pairing clicks by dataset id rather than node identity lets the first
-// click act immediately instead of being held back by a timer.
-let _callbacks   = null;
-let _lastSwatchId = null;
-let _lastSwatchTs = 0;
-
-function handleSwatchClick(e) {
-  const container = document.getElementById('datasetList');
-  const swatch = e.target.closest?.('.dataset-color');
-  if (!swatch || !container?.contains(swatch)) return;
-
-  const id  = swatch.dataset.dsId;
-  const now = performance.now();
-
-  if (_lastSwatchId === id && now - _lastSwatchTs <= DBLCLICK_MS) {
-    _lastSwatchId = null;
-    _lastSwatchTs = 0;
-    // `swatch` came from this click, so it is the freshly rendered node even
-    // though the first click rebuilt the list.
-    const picker = swatch.querySelector('input[type=color]');
-    if (picker) openColorPicker(picker);
-    return;
-  }
-
-  _lastSwatchId = id;
-  _lastSwatchTs = now;
-  _callbacks?.onLoad(id);
-}
-
 export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   const container = document.getElementById('datasetList');
   if (!container) return;
-  _callbacks = callbacks;
-  if (!container._swatchClickBound) {
-    container.addEventListener('click', handleSwatchClick);
-    container._swatchClickBound = true;
-  }
   container.innerHTML = '';
 
   Object.keys(datasets).reverse().forEach(id => {
@@ -80,13 +38,15 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
     cb.type = 'checkbox'; cb.className = 'dataset-checkbox'; cb.checked = isVisible;
     cb.onchange = e => { e.stopPropagation(); callbacks.onToggle(id); };
 
+    // The swatch is the colour control: one click opens the picker. Selecting
+    // the dataset lives on the name next to it, so there is no timing race
+    // between "load" and "edit colour" on the same element.
     const color = document.createElement('div');
     color.className = 'dataset-color';
-    color.dataset.dsId = id;          // how the delegated handler pairs the two clicks
     color.style.backgroundColor = ds.color;
     color.style.cursor = 'pointer';
     color.style.position = 'relative';
-    color.title = '點一下載入，連點兩下改顏色';
+    color.title = '點一下改顏色';
 
     // Native picker, anchored to the swatch but invisible. It must stay in the
     // DOM while the dialog is open, so the colour callbacks below deliberately
@@ -104,7 +64,9 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
     picker.onchange = () => callbacks.onColorCommit?.(id, picker.value);
     color.appendChild(picker);
 
-    // No per-swatch click handler — handleSwatchClick on the container owns it.
+    // Runs straight from the real click, so showPicker() still has the
+    // transient user activation it requires.
+    color.onclick = e => { e.stopPropagation(); openColorPicker(picker); };
 
     const lbl = document.createElement('div');
     lbl.className = 'dataset-label';
