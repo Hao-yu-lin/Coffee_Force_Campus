@@ -29,16 +29,24 @@ function handleFileSelect(event) {
   const files = Array.from(event.target.files);
   if (!files.length) return;
   let loaded = 0, failed = 0, pending = files.length;
+
+  // parseRawDataCSV() only fills the model — unlike the TXT / Akirakoki paths it
+  // never redraws, so the whole batch is rendered once here when it settles.
+  const allDone = () => {
+    const ids = _datasetModel.getIds();
+    if (ids.length) loadDatasetParams(ids[ids.length - 1]);
+    else refreshViews();
+    alert(`✅ 匯入完成！\n成功：${loaded} 個檔案　失敗：${failed} 個檔案`);
+    event.target.value = '';
+  };
+
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
       const isTxt = file.name.toLowerCase().endsWith('.txt');
       const finish = ok => {
         ok ? loaded++ : failed++;
-        if (--pending === 0) {
-          alert(`✅ 匯入完成！\n成功：${loaded} 個檔案　失敗：${failed} 個檔案`);
-          event.target.value = '';
-        }
+        if (--pending === 0) allDone();
       };
       if (isTxt) {
         finish(parseTxtFile(e.target.result, file.name, true));
@@ -59,10 +67,7 @@ function handleFileSelect(event) {
     };
     reader.onerror = () => {
       failed++;
-      if (--pending === 0) {
-        alert(`✅ 匯入完成！\n成功：${loaded} 個檔案　失敗：${failed} 個檔案`);
-        event.target.value = '';
-      }
+      if (--pending === 0) allDone();
     };
     reader.readAsText(file);
   });

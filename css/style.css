@@ -108,6 +108,49 @@ h1 {
     gap: 8px;
     justify-content: flex-end;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+/* 自動備份狀態（空字串時不佔位） */
+.autosave-status {
+    font-size: 0.78em;
+    color: #7a8b99;
+    white-space: nowrap;
+}
+.autosave-status.warn { color: #d95f5f; font-weight: 700; }
+
+/* 開啟頁面時提示可復原上次的自動備份 */
+.autosave-restore-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fff4d6;
+    border-bottom: 1px solid #e0c56a;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    font-size: 0.86em;
+    color: #6b5322;
+}
+.autosave-restore-bar button {
+    padding: 5px 14px;
+    border: none;
+    border-radius: 5px;
+    font-weight: 700;
+    font-size: 0.95em;
+    cursor: pointer;
+}
+.autosave-restore-yes { background: #4c6ef5; color: #fff; }
+.autosave-restore-no  { background: #e6e6e6; color: #555; }
+
+@media (max-width: 768px) {
+    .autosave-restore-bar { font-size: 0.78em; padding: 8px 10px; gap: 6px; }
 }
 
 .btn {
@@ -480,7 +523,27 @@ h1 {
 .dataset-color { width: 20px; height: 20px; border-radius: 3px; margin-right: 8px; flex-shrink: 0; }
 .dataset-label { flex: 1; font-size: 0.82em; color: var(--text); word-break: break-word; }
 
-.dataset-controls { display: flex; gap: 5px; margin-bottom: 8px; }
+/* 排序模式：改成上下搬動，不再是可點選的項目 */
+.dataset-item.sorting { cursor: default; background: #f5f6ff; }
+.dataset-item.sorting:hover { transform: none; box-shadow: none; }
+.dataset-move-btn {
+    width: 26px;
+    height: 24px;
+    margin-left: 4px;
+    border: 1px solid #c8ccdd;
+    border-radius: 4px;
+    background: white;
+    color: var(--primary);
+    font-size: 0.7em;
+    cursor: pointer;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+.dataset-move-btn:hover:not(:disabled) { background: var(--primary); color: white; }
+.dataset-move-btn:disabled { opacity: 0.3; cursor: default; }
+
+.dataset-controls { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+.dataset-btn.active { background: var(--success); }
 .dataset-btn {
     flex: 1;
     padding: 6px 8px;

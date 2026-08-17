@@ -8,12 +8,14 @@ import { buildIntensityButtons, buildAffectiveGrid, initOverallSelects,
 import { bindTabButtons, toggleMobileDrawer } from '../view/tabView.js';
 import { DISPLAY_OPTION_IDS, getDisplayOptions } from '../view/displayOptions.js';
 
-import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets, addEmptyCVADataset } from './datasetController.js';
+import { init as initDatasetController, toggleAllDatasets, clearSelectedDatasets,
+         addEmptyCVADataset, toggleSortMode } from './datasetController.js';
 import { init as initImportController } from './importController.js';
 import { init as initPersistController } from './persistController.js';
 import { init as initCvaController } from './cvaController.js';
 import { init as initDistributionController } from './distributionController.js';
 import { init as initPlaybackController } from './playbackController.js';
+import { init as initAutosaveController } from './autosaveController.js';
 
 const appState    = new AppState();
 const datasetModel = new DatasetModel();
@@ -129,6 +131,13 @@ async function init() {
   document.querySelector('[data-action="clear-selected"]')
     ?.addEventListener('click', clearSelectedDatasets);
 
+  const sortBtn = document.querySelector('[data-action="sort-mode"]');
+  sortBtn?.addEventListener('click', () => {
+    const on = toggleSortMode();
+    sortBtn.textContent = on ? '✓ 完成' : '↕ 排序';
+    sortBtn.classList.toggle('active', on);
+  });
+
   // 6. Init charts
   initCharts(datasetModel, getDisplayOptions);
 
@@ -153,6 +162,9 @@ async function init() {
       toggleCVAPanel(btn.dataset.togglePanel, btn.dataset.panelType)
     )
   );
+
+  // 11. Autosave / unload guard — last, so it can snapshot a fully built UI
+  initAutosaveController(appState, datasetModel);
 }
 
 init();

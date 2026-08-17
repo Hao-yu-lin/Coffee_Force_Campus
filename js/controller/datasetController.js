@@ -11,6 +11,9 @@ import { buildEmptyDataset } from '../model/csvParser.js';
 
 let _appState, _datasetModel;
 
+// 排序模式：資料集清單改成只能上下搬動，避免和選取／刪除的點擊互相干擾
+let sortMode = false;
+
 export function init(appState, datasetModel) {
   _appState = appState;
   _datasetModel = datasetModel;
@@ -62,7 +65,8 @@ export function refreshViews() {
     _datasetModel.getAll(), _datasetModel.getAllVisibility(),
     _appState.getActiveId(),
     { onToggle: toggleDataset, onLoad: loadDatasetParams, onDelete: deleteDataset,
-      onColorPreview: previewDatasetColor, onColorCommit: commitDatasetColor }
+      onColorPreview: previewDatasetColor, onColorCommit: commitDatasetColor,
+      sortMode, onMove: moveDataset }
   );
   renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset);
   renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
@@ -138,6 +142,27 @@ export function addEmptyCVADataset() {
   clearAffectiveState(_appState);
   updateCVAHeaderFields(ds);
   showDatasetBanner(ds.name);
+  refreshViews();
+}
+
+/** 開／關排序模式，回傳目前狀態讓按鈕更新文字。 */
+export function toggleSortMode() {
+  sortMode = !sortMode;
+  refreshViews();
+  return sortMode;
+}
+
+/**
+ * 依「畫面上的順序」搬動一筆資料集：dir = -1 上移、+1 下移。
+ * 清單是反著畫的（最新在最上面），所以換完位置要反轉回 model 的順序。
+ */
+export function moveDataset(id, dir) {
+  const display = _datasetModel.getIds().reverse();
+  const from = display.indexOf(id);
+  const to   = from + dir;
+  if (from < 0 || to < 0 || to >= display.length) return;
+  [display[from], display[to]] = [display[to], display[from]];
+  _datasetModel.reorder(display.reverse());
   refreshViews();
 }
 

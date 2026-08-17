@@ -54,6 +54,22 @@ export class DatasetModel {
     });
     this.reassignColors();
   }
+  /**
+   * Reorder the datasets to match `ids` (model order = the order everything
+   * else iterates in). Unknown ids are ignored and any id left out keeps its
+   * place at the end, so a stale list can never drop a dataset. Colours are
+   * deliberately left alone — reordering is not supposed to repaint anything.
+   */
+  reorder(ids) {
+    const next = {};
+    ids.forEach(id => {
+      if (this.#datasets[id] && !next[id]) next[id] = this.#datasets[id];
+    });
+    Object.keys(this.#datasets).forEach(id => {
+      if (!next[id]) next[id] = this.#datasets[id];
+    });
+    this.#datasets = next;
+  }
   setParam(id, key, value) {
     if (this.#datasets[id]) this.#datasets[id][key] = value;
   }

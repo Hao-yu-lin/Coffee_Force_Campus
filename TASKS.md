@@ -21,6 +21,33 @@
 
 -->
 
+
+## 已完成
+
+### [自動備份 + 重新整理前警告]
+**類型**: feature
+**完成日期**: 2026-08-17
+**變更檔案**: `js/controller/autosaveController.js`（新增）, `js/controller/appController.js`, `js/controller/persistController.js`, `main.html`, `css/style.css`
+
+- **離開前警告**：距離上次「完成並儲存同步」之後若還有未匯出的變動，重新整理／關閉分頁時跳出瀏覽器確認框（`beforeunload`；文字由瀏覽器決定，網頁無法自訂）
+- **自動備份**：整個工作階段（資料集、可見性、表頭欄位、顯示選項、座標軸範圍、粒徑分布狀態、CVA 內容）寫進 `localStorage`（key `cfc_autosave_v1`，只保留最新一份）
+  - 觸發時機：輸入停止 0.8 秒後、每 3 秒輪詢（補抓匯入／刪除等不觸發 input 的變動）、切到背景（`visibilitychange`）、離開前（`pagehide` / `beforeunload`）
+  - 超過 4MB 或寫入失敗時不中斷操作，改在表頭顯示紅色警告
+- **復原提示**：開啟頁面時若偵測到備份，頁面頂端出現橫幅（不用 `confirm`，避免手滑按掉就再也叫不回來），可選「復原」或「先不要」；備份要等到有新的變動才會被覆蓋
+- **狀態顯示**：表頭「完成並儲存同步」旁顯示「已自動備份 HH:MM」／「已存檔 HH:MM」
+
+### [資料集排序 + 細項欄位排序一致化]
+**類型**: feature / fix
+**完成日期**: 2026-08-17
+**變更檔案**: `js/model/datasetModel.js`, `js/controller/datasetController.js`, `js/controller/appController.js`, `js/controller/importController.js`, `js/view/datasetListView.js`, `js/view/paramsView.js`, `tabs/tab-brewing.html`, `css/style.css`
+
+- **欄位排序一致化**：中間細項資料卡片原本依匯入順序（最舊在最前），改為與右側「資料集管理」相同的顯示順序（最新在最前）
+- **資料集排序功能**：資料集管理新增 `↕ 排序` 按鈕，進入排序模式後每列顯示 ▲▼ 上下移動（首／末列自動 disabled），再按一次 `✓ 完成` 離開
+  - `datasetModel.reorder(ids)` 重排 model 的 key 順序；不重新分配顏色，資料集維持原本的色票
+  - 排序模式下暫時隱藏勾選框與刪除鈕，避免和搬動的點擊互相干擾
+  - 新順序同步套用到細項卡片、CVA 資料集面板與圖表繪製順序，並隨自動備份 / 儲存檔一起保留
+- **順手修掉**：`importController.handleFileSelect()` 的 raw CSV 路徑（`parseRawDataCSV`）從來沒有呼叫 `refreshViews()`，用「+ 匯入 CSV / TXT」匯入 raw 格式後畫面不會更新，改為整批讀完後統一 render
+
 ### feature:
 #### 目前資料欄位的新功能
 目的：支援顯示多筆資料
@@ -28,10 +55,6 @@
 - 每一筆資料欄位的背景配色，以及標題的配色，使用跟該資料在資料管理使用的配色色系一樣
 - 該區域也支援收合功能
 
-
-
-
-## 已完成
 
 ### [Bug fix — adc2 右側 badge 值與顯示邏輯修正]
 **類型**: fix

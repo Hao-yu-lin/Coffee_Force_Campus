@@ -22,7 +22,9 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   if (!container) return;
   container.innerHTML = '';
 
-  Object.keys(datasets).reverse().forEach(id => {
+  const order = Object.keys(datasets).reverse();
+
+  order.forEach((id, index) => {
     const ds = datasets[id];
     const isVisible = visibility[id];
 
@@ -32,6 +34,34 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
     if (id === activeId) {
       item.style.background = '#e8eaf6';
       item.style.outline    = '2px solid #667eea';
+    }
+
+    // ── 排序模式：只留顏色、名稱與上下移動按鈕 ──
+    if (callbacks.sortMode) {
+      item.classList.add('sorting');
+
+      const color = document.createElement('div');
+      color.className = 'dataset-color';
+      color.style.backgroundColor = ds.color;
+
+      const lbl = document.createElement('div');
+      lbl.className = 'dataset-label';
+      lbl.textContent = ds.name;
+
+      const up = document.createElement('button');
+      up.className = 'dataset-move-btn'; up.innerHTML = '▲'; up.title = '上移';
+      up.disabled = index === 0;
+      up.onclick = e => { e.stopPropagation(); callbacks.onMove?.(id, -1); };
+
+      const down = document.createElement('button');
+      down.className = 'dataset-move-btn'; down.innerHTML = '▼'; down.title = '下移';
+      down.disabled = index === order.length - 1;
+      down.onclick = e => { e.stopPropagation(); callbacks.onMove?.(id, 1); };
+
+      item.appendChild(color); item.appendChild(lbl);
+      item.appendChild(up); item.appendChild(down);
+      container.appendChild(item);
+      return;
     }
 
     const cb = document.createElement('input');

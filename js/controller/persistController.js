@@ -7,6 +7,7 @@ import { collectDescriptiveState, collectAffectiveState,
 import { loadDatasetParams, refreshViews } from './datasetController.js';
 import { buildEmptyDataset } from '../model/csvParser.js';
 import { getDistributionState, loadDistributionState } from './distributionController.js';
+import { markSaved } from './autosaveController.js';
 
 let _appState, _datasetModel;
 
@@ -93,6 +94,7 @@ function saveData() {
     const ds   = allDatasets[id];
     const name = (ds.name || 'brewing').replace(/[/\\?%*:|"<>]/g, '_');
     downloadJSON(buildFileObj(id), `${name}_${timestamp}.json`);
+    markSaved();
     alert('✅ 已儲存 1 個資料集！');
   } else {
     // Bundle multiple datasets into one ZIP (mobile-safe single download)
@@ -108,6 +110,7 @@ function saveData() {
       a.href = url; a.download = `datasets_${timestamp}.zip`;
       document.body.appendChild(a); a.click();
       document.body.removeChild(a); URL.revokeObjectURL(url);
+      markSaved();
       alert(`✅ 已將 ${ids.length} 個資料集打包為 datasets_${timestamp}.zip！`);
     });
   }

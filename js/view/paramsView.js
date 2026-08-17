@@ -13,9 +13,10 @@ export function renderParamsCards(datasets, visibility) {
   const container = document.getElementById('paramsContainer');
   if (!container) return;
 
-  const visible = Object.entries(datasets)
-    .filter(([id]) => visibility[id])
-    .map(([, ds]) => ds);
+  // 順序跟右側「資料集管理」一致（最新的在最前面），否則兩邊對不起來
+  const visible = Object.keys(datasets).reverse()
+    .filter(id => visibility[id])
+    .map(id => datasets[id]);
 
   if (visible.length === 0) {
     container.innerHTML = '';
