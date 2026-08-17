@@ -801,7 +801,48 @@ h1 {
     color: var(--primary);
     margin-bottom: 10px;
     font-size: 0.88em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
 }
+
+/* 「資料集切換」面板的排序切換鈕 */
+.cva-sort-btn {
+    padding: 3px 8px;
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    background: white;
+    color: var(--primary);
+    font-size: 0.9em;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+.cva-sort-btn:hover  { background: var(--primary); color: white; }
+.cva-sort-btn.active { background: var(--success); border-color: var(--success); color: white; }
+
+.cva-ds-item.sorting { cursor: default; }
+.cva-ds-move-btn, .cva-mobile-ds-move-btn {
+    width: 20px;
+    height: 22px;
+    margin-left: 2px;
+    padding: 0;
+    border: 1px solid #c8ccdd;
+    border-radius: 4px;
+    background: white;
+    color: var(--primary);
+    font-size: 0.65em;
+    cursor: pointer;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+.cva-ds-move-btn:hover:not(:disabled),
+.cva-mobile-ds-move-btn:hover:not(:disabled) { background: var(--primary); color: white; }
+.cva-ds-move-btn:disabled,
+.cva-mobile-ds-move-btn:disabled { opacity: 0.3; cursor: default; }
 
 /* CVA Header Bar */
 .cva-header-bar {
@@ -892,6 +933,9 @@ h1 {
 }
 .cva-mobile-ds-chip.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); }
 .cva-mobile-ds-chip.cva-mobile-ds-add { border-color: var(--primary); color: var(--primary); font-size: 1em; padding: 4px 12px; }
+/* 排序開關（手機版）— 放在 .active 規則之後才蓋得掉選中的樣式 */
+.cva-mobile-ds-chip.cva-mobile-ds-sort { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+.cva-mobile-ds-chip.cva-mobile-ds-sort.active { background: var(--success); border-color: var(--success); color: white; }
 .cva-mobile-ds-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── CVA Sections ───────────────────────────────── */

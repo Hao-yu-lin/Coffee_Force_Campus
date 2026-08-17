@@ -27,7 +27,8 @@ export function init(appState, datasetModel) {
       const id = _appState.getActiveId();
       if (id && _datasetModel.get(id)) {
         _datasetModel.get(id).name = e.target.value;
-        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams, addEmptyCVADataset, deleteDataset);
+        renderCVADatasetPanel(_datasetModel.getAll(), id, loadDatasetParams, addEmptyCVADataset, deleteDataset,
+    { sortMode, onMove: moveDataset });
       }
     });
   });
@@ -68,7 +69,8 @@ export function refreshViews() {
       onColorPreview: previewDatasetColor, onColorCommit: commitDatasetColor,
       sortMode, onMove: moveDataset }
   );
-  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset);
+  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset,
+    { sortMode, onMove: moveDataset });
   renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
   updateCharts(_datasetModel, getDisplayOptions());
 }
@@ -91,7 +93,8 @@ export function commitDatasetColor(id, color) {
   if (!ds) return;
   ds.color = color;
   updateCharts(_datasetModel, getDisplayOptions());
-  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset);
+  renderCVADatasetPanel(_datasetModel.getAll(), _appState.getActiveId(), loadDatasetParams, addEmptyCVADataset, deleteDataset,
+    { sortMode, onMove: moveDataset });
   renderParamsCards(_datasetModel.getAll(), _datasetModel.getAllVisibility());
 }
 

@@ -131,11 +131,17 @@ async function init() {
   document.querySelector('[data-action="clear-selected"]')
     ?.addEventListener('click', clearSelectedDatasets);
 
-  const sortBtn = document.querySelector('[data-action="sort-mode"]');
-  sortBtn?.addEventListener('click', () => {
+  // 沖煮紀錄的「資料集管理」、兩個 CVA 分頁的「資料集切換」與手機的 chip 列
+  // 共用同一個排序模式，所以按任何一顆，其他幾顆的文字都要一起換。手機的 chip
+  // 每次重繪都是新節點，因此用事件委派而不是逐顆綁定。
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action="sort-mode"]');
+    if (!btn) return;
     const on = toggleSortMode();
-    sortBtn.textContent = on ? '✓ 完成' : '↕ 排序';
-    sortBtn.classList.toggle('active', on);
+    document.querySelectorAll('[data-action="sort-mode"]').forEach(b => {
+      b.textContent = on ? '✓ 完成' : '↕ 排序';
+      b.classList.toggle('active', on);
+    });
   });
 
   // 6. Init charts

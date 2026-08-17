@@ -113,7 +113,25 @@ export function renderDatasetList(datasets, visibility, activeId, callbacks) {
   });
 }
 
-export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddCallback, onDeleteCallback) {
+export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddCallback, onDeleteCallback, options = {}) {
+  const { sortMode = false, onMove } = options;
+  const order = Object.keys(datasets).reverse();
+
+  /** 排序模式下取代刪除鈕的兩顆搬動按鈕。 */
+  const buildMoveButtons = (id, index, cls, [prev, next]) => {
+    const mk = (label, dir, disabled, title) => {
+      const b = document.createElement('button');
+      b.className = cls; b.innerHTML = label; b.title = title;
+      b.disabled = disabled;
+      b.onclick = e => { e.stopPropagation(); onMove?.(id, dir); };
+      return b;
+    };
+    return [
+      mk(prev, -1, index === 0,               '往前移'),
+      mk(next,  1, index === order.length - 1, '往後移')
+    ];
+  };
+
   const targets = [
     { list: 'cva-desc-dataset-list', mobile: 'cva-desc-mobile-list' },
     { list: 'cva-aff-dataset-list',  mobile: 'cva-aff-mobile-list'  }
@@ -122,20 +140,21 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddC
     const container = document.getElementById(list);
     if (container) {
       container.innerHTML = '';
-      if (onAddCallback) {
+      // 排序模式下不顯示「新增資料集」，避免搬動時誤按
+      if (onAddCallback && !sortMode) {
         const addBtn = document.createElement('div');
         addBtn.className = 'cva-ds-item cva-ds-add';
         addBtn.onclick = onAddCallback;
         addBtn.innerHTML = '<span style="font-size:1.2em;font-weight:bold;">＋</span><div class="cva-ds-name">新增資料集</div>';
         container.appendChild(addBtn);
       }
-      Object.keys(datasets).reverse().forEach(id => {
+      order.forEach((id, index) => {
         const ds = datasets[id];
         const isActive = id === activeId;
         const div = document.createElement('div');
-        div.className = `cva-ds-item${isActive ? ' active' : ''}`;
+        div.className = `cva-ds-item${isActive ? ' active' : ''}${sortMode ? ' sorting' : ''}`;
         div.style.borderLeftColor = ds.color;
-        div.onclick = () => onLoadCallback(id);
+        if (!sortMode) div.onclick = () => onLoadCallback(id);
         const dot = document.createElement('div');
         dot.className = 'cva-ds-dot';
         dot.style.background = ds.color;
@@ -144,6 +163,12 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddC
         name.textContent = ds.name;
         if (isActive) name.style.fontWeight = 'bold';
         div.appendChild(dot); div.appendChild(name);
+        if (sortMode) {
+          buildMoveButtons(id, index, 'cva-ds-move-btn', ['▲', '▼'])
+            .forEach(b => div.appendChild(b));
+          container.appendChild(div);
+          return;
+        }
         if (onDeleteCallback) {
           const del = document.createElement('button');
           del.className = 'cva-ds-delete-btn';
@@ -158,14 +183,22 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddC
     const mobileContainer = document.getElementById(mobile);
     if (mobileContainer) {
       mobileContainer.innerHTML = '';
-      if (onAddCallback) {
+      // 手機看不到側邊的「資料集切換」面板，排序開關要放進 chip 列
+      // （data-action 交給 appController 的事件委派，重繪後仍然有效）
+      const sortChip = document.createElement('span');
+      sortChip.className = `cva-mobile-ds-chip cva-mobile-ds-sort${sortMode ? ' active' : ''}`;
+      sortChip.dataset.action = 'sort-mode';
+      sortChip.textContent = sortMode ? '✓ 完成' : '↕ 排序';
+      mobileContainer.appendChild(sortChip);
+
+      if (onAddCallback && !sortMode) {
         const addChip = document.createElement('span');
         addChip.className = 'cva-mobile-ds-chip cva-mobile-ds-add';
         addChip.onclick = onAddCallback;
         addChip.textContent = '＋';
         mobileContainer.appendChild(addChip);
       }
-      Object.keys(datasets).reverse().forEach(id => {
+      order.forEach((id, index) => {
         const ds = datasets[id];
         const isActive = id === activeId;
         const wrap = document.createElement('span');
@@ -174,9 +207,16 @@ export function renderCVADatasetPanel(datasets, activeId, onLoadCallback, onAddC
         wrap.style.alignItems = 'center';
         const chip = document.createElement('span');
         chip.className = `cva-mobile-ds-chip${isActive ? ' active' : ''}`;
-        chip.onclick = () => onLoadCallback(id);
+        if (!sortMode) chip.onclick = () => onLoadCallback(id);
         chip.innerHTML = `<span class="cva-mobile-ds-dot" style="background:${ds.color}"></span>${ds.name}`;
         wrap.appendChild(chip);
+        // 手機是橫向排列，所以用左右箭頭而不是上下
+        if (sortMode) {
+          buildMoveButtons(id, index, 'cva-mobile-ds-move-btn', ['◀', '▶'])
+            .forEach(b => wrap.appendChild(b));
+          mobileContainer.appendChild(wrap);
+          return;
+        }
         if (onDeleteCallback) {
           const del = document.createElement('button');
           del.className = 'cva-mobile-ds-delete-btn';
